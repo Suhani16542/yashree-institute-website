@@ -61,7 +61,9 @@ export default function TrustStats() {
             return (
               <div
                 key={index}
-                className="flex flex-col items-center text-center p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800/90 hover:border-[#f2c301]/50 transition-all duration-300 group hover:-translate-y-1"
+                className={`flex flex-col items-center text-center p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800/90 hover:border-[#f2c301]/50 transition-all duration-300 group hover:-translate-y-1 ${
+                  index === 4 ? "col-span-2 md:col-span-1" : ""
+                }`}
               >
                 <div className="w-12 h-12 rounded-xl bg-[#f2c301]/10 group-hover:bg-[#f2c301]/20 flex items-center justify-center text-[#f2c301] mb-3 transition-colors">
                   <Icon className="w-6 h-6" />

@@ -60,13 +60,13 @@ export default function HeroSection() {
           LEFT ISOLATED VISUAL: Pure Cutout Serum (Moved Upward, Leaning Inward Toward Center \)
           Placed DIRECTLY on the white hero background — NO container, NO box, NO border
          ========================================================================= */}
-      <div className="absolute left-[-35px] sm:left-[-15px] md:left-[1%] lg:left-[2.5%] xl:left-[4%] top-[1%] sm:top-[2%] lg:top-[3%] xl:top-[4%] w-[200px] sm:w-[240px] lg:w-[300px] xl:w-[350px] h-[290px] sm:h-[350px] lg:h-[430px] xl:h-[480px] pointer-events-none select-none z-0 animate-float">
+      <div className="absolute left-[-35px] sm:left-[-15px] md:left-[1%] lg:left-[2.5%] xl:left-[4%] top-[1%] sm:top-[2%] lg:top-[3%] xl:top-[4%] w-[160px] sm:w-[240px] lg:w-[300px] xl:w-[350px] h-[240px] sm:h-[350px] lg:h-[430px] xl:h-[480px] pointer-events-none select-none z-0 animate-float opacity-25 sm:opacity-100 transition-opacity">
         <div className="relative w-full h-full transform rotate-[13deg] lg:rotate-[15deg] origin-top-left transition-transform duration-700">
           <Image
             src="/images/hero_isolated_serum.png"
             alt="Cosmetology Skincare & Serum Visual"
             fill
-            sizes="(max-width: 768px) 200px, (max-width: 1280px) 300px, 360px"
+            sizes="(max-width: 768px) 160px, (max-width: 1280px) 300px, 360px"
             className="object-contain"
             priority
           />
@@ -77,13 +77,13 @@ export default function HeroSection() {
           RIGHT ISOLATED VISUAL: Pure Cutout Brush & Shimmer (Moved Upward, Leaning Inward Toward Center /)
           Placed DIRECTLY on the white hero background — NO container, NO box, NO border
          ========================================================================= */}
-      <div className="absolute right-[-35px] sm:right-[-15px] md:right-[1%] lg:right-[2.5%] xl:right-[4%] top-[1%] sm:top-[2%] lg:top-[3%] xl:top-[4%] w-[200px] sm:w-[240px] lg:w-[300px] xl:w-[350px] h-[290px] sm:h-[350px] lg:h-[430px] xl:h-[480px] pointer-events-none select-none z-0 animate-float-reverse">
+      <div className="absolute right-[-35px] sm:right-[-15px] md:right-[1%] lg:right-[2.5%] xl:right-[4%] top-[1%] sm:top-[2%] lg:top-[3%] xl:top-[4%] w-[160px] sm:w-[240px] lg:w-[300px] xl:w-[350px] h-[240px] sm:h-[350px] lg:h-[430px] xl:h-[480px] pointer-events-none select-none z-0 animate-float-reverse opacity-25 sm:opacity-100 transition-opacity">
         <div className="relative w-full h-full transform -rotate-[13deg] lg:-rotate-[15deg] origin-top-right transition-transform duration-700">
           <Image
             src="/images/hero_isolated_brush.png"
             alt="Professional Makeup Artistry & Brush Visual"
             fill
-            sizes="(max-width: 768px) 200px, (max-width: 1280px) 300px, 360px"
+            sizes="(max-width: 768px) 160px, (max-width: 1280px) 300px, 360px"
             className="object-contain"
             priority
           />
