@@ -96,17 +96,17 @@ export default function HeroSection() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 flex flex-col items-center">
         
         {/* Top Brand Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-50 border border-zinc-200 shadow-sm text-zinc-900 text-xs sm:text-[13px] font-semibold tracking-wide mb-4 animate-pulse-glow">
-          <span className="w-2 h-2 rounded-full bg-[#f2c301]" />
+        <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 rounded-full bg-zinc-50 border border-zinc-200 shadow-sm text-zinc-900 text-[11px] sm:text-[13px] font-semibold tracking-wide mb-4 animate-pulse-glow max-w-full">
+          <span className="w-2 h-2 rounded-full bg-[#f2c301] flex-shrink-0" />
           <span className="text-[#b8860b] font-bold">YASHREE INSTITUTE</span>
-          <span className="text-zinc-400">•</span>
-          <span className="text-zinc-700">Cosmetology &amp; Aesthetic Academy</span>
+          <span className="text-zinc-400 hidden xs:inline">•</span>
+          <span className="text-zinc-700 text-center">Cosmetology &amp; Aesthetic Academy</span>
         </div>
 
         {/* Rotating Headline Box */}
-        <div className="min-h-[105px] sm:min-h-[120px] lg:min-h-[145px] flex flex-col items-center justify-center max-w-3xl mx-auto">
+        <div className="min-h-[100px] sm:min-h-[120px] lg:min-h-[145px] flex flex-col items-center justify-center max-w-3xl mx-auto px-1">
           <h1
-            className={`text-3xl sm:text-4xl lg:text-5xl xl:text-[54px] font-serif font-bold text-zinc-950 tracking-tight leading-[1.14] transition-all duration-400 transform ${
+            className={`text-2xl xs:text-3xl sm:text-4xl lg:text-5xl xl:text-[54px] font-serif font-bold text-zinc-950 tracking-tight leading-[1.18] sm:leading-[1.14] transition-all duration-400 transform ${
               fadeState === "in"
                 ? "opacity-100 translate-y-0 scale-100"
                 : "opacity-0 -translate-y-2 scale-98"

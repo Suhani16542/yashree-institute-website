@@ -126,8 +126,8 @@ export default function Navbar() {
         >
           <div className="flex items-center justify-between">
             {/* Yashree Institute Official Logo */}
-            <Link href="/" className="flex items-center gap-3">
-              <div className="relative w-44 sm:w-52 h-11">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <div className="relative w-36 xs:w-44 sm:w-52 h-9 sm:h-11">
                 <Image
                   src="/images/logo_dark_text.png"
                   alt="Yashree Institute Cosmetology & Aesthetic Academy"
