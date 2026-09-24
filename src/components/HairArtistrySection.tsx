@@ -15,9 +15,9 @@ export default function HairArtistrySection() {
   ];
 
   return (
-    <section className="py-20 lg:py-28 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
+    <section className="py-10 md:py-14 lg:py-16 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
           {/* Left: Luxury Hair Styling Photo */}
           <div className="lg:col-span-6 relative">
             <AnimatedReveal animation="fade-left">

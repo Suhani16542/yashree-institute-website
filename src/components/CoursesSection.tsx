@@ -13,6 +13,7 @@ import {
   Check,
   MessageCircle,
   ExternalLink,
+  GraduationCap,
 } from "lucide-react";
 
 interface Course {
@@ -26,9 +27,10 @@ interface Course {
   keyHighlights: string[];
   kitProvided: string[];
   forWho: string;
+  courseSlug?: string;
 }
 
-const COURSES: Course[] = [
+const FLAGSHIP_COURSES: Course[] = [
   {
     id: "aesthetic",
     title: "Non-Doctor Aesthetic Course",
@@ -36,6 +38,7 @@ const COURSES: Course[] = [
     tagline: "Master the Art of Industry-Focused Non-Doctor Aesthetic & PMU Care",
     durationBadge: "Industry-Focused Flagship",
     posterImage: "/images/non_doctor_aesthetic.jpg",
+    courseSlug: "skin",
     curriculum: [
       "Foundation of Aesthetics & Skin Science",
       "Skin Analysis & Fitzpatrick Profiling",
@@ -68,6 +71,7 @@ const COURSES: Course[] = [
     tagline: "Basic to Pro Training — Learn • Practice • Shine",
     durationBadge: "Basic To Pro Masterclass",
     posterImage: "/images/makeup_masterclass.jpg",
+    courseSlug: "professional-makeup",
     curriculum: [
       "Colour Wheel Theory & Undertone Identification",
       "Skin Type Preparation & Flawless Base Creation",
@@ -100,6 +104,7 @@ const COURSES: Course[] = [
     tagline: "From Basic Sectioning to Celebrity Red-Carpet Hairstyles",
     durationBadge: "Basic to Advanced",
     posterImage: "/images/hair_styling.jpg",
+    courseSlug: "hair-styling",
     curriculum: [
       "Hair Sectioning Techniques & Tools Introduction",
       "Blow Dry, Ironing & Heat Curling Mastery",
@@ -132,6 +137,7 @@ const COURSES: Course[] = [
     tagline: "Hair Structure, Chemical Treatments, Global Colour & Cutting Skills",
     durationBadge: "Advanced Chemical Track",
     posterImage: "/images/hair_masterclass.jpg",
+    courseSlug: "hair-chemical",
     curriculum: [
       "Hair Structure, Growth Cycle & pH Scale Science",
       "Hair Type Diagnosis & Client Consultation",
@@ -162,6 +168,7 @@ const COURSES: Course[] = [
     tagline: "Learn In 15 Days • Earn For A Lifetime",
     durationBadge: "15 Days Intensive",
     posterImage: "/images/nail_art.jpg",
+    courseSlug: "nail-extensions",
     curriculum: [
       "Complete Nail Anatomy & Sanitization Standards",
       "Gel Extensions, Acrylic Extensions & Overlaying",
@@ -191,6 +198,7 @@ const COURSES: Course[] = [
     tagline: "Microblading, Lip Tinting & Advanced Aesthetic Care",
     durationBadge: "10 Days High-Income Track",
     posterImage: "/images/pmu_aesthetics.jpg",
+    courseSlug: "semi-permanent-makeup",
     curriculum: [
       "Eyebrows Microblading & Micro-Shading",
       "Combination Brows & Ombre Powder Brows",
@@ -220,6 +228,7 @@ const COURSES: Course[] = [
     tagline: "Complete Salon Skin Care, Spa Therapies & Facials",
     durationBadge: "Foundational Diploma",
     posterImage: "/images/skin_care_course.jpg",
+    courseSlug: "skin",
     curriculum: [
       "Threading (Eyebrows, Upper Lips, Forehead, Chin)",
       "Cleanups, D-Tan & Professional Bleach Application",
@@ -247,39 +256,136 @@ const COURSES: Course[] = [
 
 export default function CoursesSection() {
   const [activeCourseId, setActiveCourseId] = useState<string>("aesthetic");
-  const activeCourse = COURSES.find((c) => c.id === activeCourseId) || COURSES[0];
+
+  const activeCourse =
+    FLAGSHIP_COURSES.find((c) => c.id === activeCourseId) || FLAGSHIP_COURSES[0];
 
   return (
-    <section id="courses" className="py-20 lg:py-28 bg-[#faf8f5] relative border-b border-amber-100">
+    <section id="courses" className="py-10 md:py-14 lg:py-16 bg-[#faf8f5] relative border-b border-amber-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/90 border border-amber-300 text-zinc-900 text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
-            <BookOpen className="w-3.5 h-3.5 text-[#b8860b]" />
-            <span>Interactive Masterclass Explorer</span>
+        {/* ========================================================
+            1. CLEAN & ELEGANT ACADEMY COURSES SHOWCASE HERO
+        ======================================================== */}
+        <div className="relative rounded-3xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 border-2 border-amber-300/60 p-6 sm:p-8 lg:p-10 shadow-2xl overflow-hidden mb-8 sm:mb-10">
+          {/* Subtle gold ambient lighting */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#f2c301]/15 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -ml-20 -mb-20" />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
+            {/* Left Narrative Column */}
+            <div className="lg:col-span-7 space-y-5 text-left">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#f2c301]/20 border border-amber-400/40 text-[#f2c301] text-xs font-bold uppercase tracking-widest shadow-xs">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Certified Professional Programs</span>
+              </div>
+
+              {/* 1 Strong Heading */}
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-extrabold text-white tracking-tight leading-[1.15]">
+                Explore Our Professional Academy Courses
+              </h2>
+
+              {/* 1 Short Paragraph */}
+              <p className="text-zinc-300 text-base sm:text-lg leading-relaxed max-w-2xl font-normal">
+                Discover professional training programs in Skin, Hair, Makeup, SPMU and Nail Art, designed with practical, hands-on learning.
+              </p>
+
+              {/* Core Practical USPs */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800">
+                  <CheckCircle2 className="w-4 h-4 text-[#f2c301] flex-shrink-0" />
+                  <span>100% Practical Training</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800">
+                  <CheckCircle2 className="w-4 h-4 text-[#f2c301] flex-shrink-0" />
+                  <span>Live Model Sessions</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800 col-span-2 sm:col-span-1">
+                  <CheckCircle2 className="w-4 h-4 text-[#f2c301] flex-shrink-0" />
+                  <span>Deepika Patidar Mentorship</span>
+                </div>
+              </div>
+
+              {/* 1 View Courses Button & WhatsApp Enquiry */}
+              <div className="pt-4 flex flex-wrap items-center gap-4">
+                <a
+                  href="#inspector"
+                  className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn gold-shadow hover:scale-105 transition-all duration-200"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  <span>View Courses</span>
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+
+                <a
+                  href="https://wa.me/919589871662?text=Hi%20Yashree%20Institute,%20I%20would%20like%20to%20enquire%20about%20your%20academy%20courses."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-amber-400/50 transition-all"
+                >
+                  <MessageCircle className="w-4 h-4 text-[#f2c301]" />
+                  <span>WhatsApp Admission Desk</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Right Academy Masterclass Visual */}
+            <div className="lg:col-span-5 relative">
+              <div className="relative aspect-[4/3] sm:aspect-[16/11] lg:aspect-[4/3] rounded-3xl overflow-hidden border-2 border-amber-300/80 shadow-2xl bg-zinc-950 group">
+                <Image
+                  src="/images/academy_courses_showcase.jpg"
+                  alt="Yashree Institute Professional Beauty Academy Training"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 500px"
+                  className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/20 to-transparent" />
+
+                {/* Floating Experience Badge */}
+                <div className="absolute bottom-4 left-4 right-4 bg-zinc-950/90 backdrop-blur-md p-3.5 rounded-2xl border border-amber-300/40 flex items-center justify-between text-white">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#f2c301] block">
+                      Yashree Institute Indore
+                    </span>
+                    <p className="text-xs font-semibold text-zinc-200">
+                      Skin • Hair • Makeup • SPMU • Nails
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-[#f2c301] flex items-center justify-center border border-amber-400/50">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
-            Certified Beauty &amp; Cosmetology Programs
-          </h2>
-          <p className="mt-4 text-zinc-600 text-base sm:text-lg">
-            Select a program below to explore the full curriculum, kit inclusions, and certification details.
-          </p>
         </div>
 
-        {/* Masterclass Explorer Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-16">
+        {/* ========================================================
+            2. FLAGSHIP MASTERCLASS INTERACTIVE EXPLORER
+        ======================================================== */}
+        <div id="inspector" className="text-center max-w-2xl mx-auto mb-6 space-y-1.5 pt-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
+            Detailed Curriculum Preview
+          </span>
+          <h3 className="text-2xl sm:text-3xl font-bold text-zinc-950 font-serif">
+            Interactive Program Inspector
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start mb-4">
           {/* Left Course Selector Menu */}
-          <div className="lg:col-span-4 flex flex-col space-y-2.5">
+          <div className="lg:col-span-4 flex flex-col space-y-2">
             <div className="px-2 pb-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Select Academy Program:
+              Select Academy Track:
             </div>
-            {COURSES.map((course) => {
+            {FLAGSHIP_COURSES.map((course) => {
               const isSelected = course.id === activeCourseId;
               return (
                 <button
                   key={course.id}
                   onClick={() => setActiveCourseId(course.id)}
-                  className={`text-left p-4 rounded-2xl transition-all duration-300 flex items-center justify-between border ${
+                  className={`text-left p-3.5 rounded-2xl transition-all duration-300 flex items-center justify-between border cursor-pointer ${
                     isSelected
                       ? "bg-zinc-950 text-white border-zinc-950 shadow-xl scale-[1.02]"
                       : "bg-white text-zinc-800 border-zinc-200/80 hover:border-amber-300 hover:bg-amber-50/50"
@@ -317,13 +423,13 @@ export default function CoursesSection() {
           </div>
 
           {/* Right Featured Course Details Screen */}
-          <div className="lg:col-span-8 bg-white rounded-3xl border-2 border-amber-200/80 shadow-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden flex flex-col justify-between">
+          <div className="lg:col-span-8 bg-white rounded-3xl border-2 border-amber-200/80 shadow-2xl p-5 sm:p-7 lg:p-8 relative overflow-hidden flex flex-col justify-between">
             {/* Ambient gold glow */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-[#f2c301]/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-5 relative z-10">
               {/* Header Info */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-zinc-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-100">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
                     {activeCourse.category} • {activeCourse.durationBadge}
@@ -424,10 +530,10 @@ export default function CoursesSection() {
 
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                 <Link
-                  href={`/services/${activeCourse.id}`}
+                  href={activeCourse.courseSlug ? `/courses/${activeCourse.courseSlug}` : `/services/${activeCourse.id}`}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-900 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-all hover:scale-102"
                 >
-                  <span>Detailed Page</span>
+                  <span>Dedicated Course Page</span>
                   <ExternalLink className="w-3.5 h-3.5 text-[#b8860b]" />
                 </Link>
 

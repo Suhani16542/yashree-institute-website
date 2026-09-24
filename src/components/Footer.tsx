@@ -27,8 +27,8 @@ export default function Footer() {
   return (
     <footer className="bg-zinc-950 text-zinc-400 border-t border-zinc-800 relative">
       {/* Upper Footer */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10">
           {/* Brand & Mission Column */}
           <div className="lg:col-span-4 space-y-5">
             <Link href="/" className="inline-block">
@@ -90,47 +90,52 @@ export default function Footer() {
           {/* Courses List */}
           <div className="lg:col-span-3 space-y-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-              Academy Programs
+              Certified Courses
             </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm">
               <li>
-                <Link href="/services/aesthetic" className="hover:text-[#f2c301] transition-colors">
-                  Non-Doctor Aesthetic Course
+                <Link href="/courses/skin" className="hover:text-[#f2c301] transition-colors">
+                  Skin Care &amp; Clinical Aesthetics
                 </Link>
               </li>
               <li>
-                <Link href="/services/makeup" className="hover:text-[#f2c301] transition-colors">
+                <Link href="/courses/professional-makeup" className="hover:text-[#f2c301] transition-colors">
                   Professional Makeup Masterclass
                 </Link>
               </li>
               <li>
-                <Link href="/services/hair-styling" className="hover:text-[#f2c301] transition-colors">
+                <Link href="/courses/hair-chemical" className="hover:text-[#f2c301] transition-colors">
+                  Hair Chemical &amp; Color Science
+                </Link>
+              </li>
+              <li>
+                <Link href="/courses/hair-styling" className="hover:text-[#f2c301] transition-colors">
                   Hair Styling (Basic to Advanced)
                 </Link>
               </li>
               <li>
-                <Link href="/services/hair-masterclass" className="hover:text-[#f2c301] transition-colors">
-                  Hair Chemical Treatments &amp; Cut
+                <Link href="/courses/hydra-facial" className="hover:text-[#f2c301] transition-colors">
+                  Hydra Facial &amp; Medi-Facials
                 </Link>
               </li>
               <li>
-                <Link href="/services/nail-extension" className="hover:text-[#f2c301] transition-colors">
-                  Nail Extensions &amp; Nail Art Class
+                <Link href="/courses/semi-permanent-makeup" className="hover:text-[#f2c301] transition-colors">
+                  Semi-Permanent Makeup (SPMU)
                 </Link>
               </li>
               <li>
-                <Link href="/services/pmu" className="hover:text-[#f2c301] transition-colors">
-                  Permanent Makeup (PMU) &amp; Microblading
+                <Link href="/courses/microblading" className="hover:text-[#f2c301] transition-colors">
+                  Eyebrow Microblading
                 </Link>
               </li>
               <li>
-                <Link href="/services/skincare" className="hover:text-[#f2c301] transition-colors">
-                  Comprehensive Skin Care &amp; Spa Course
+                <Link href="/courses/nail-extensions" className="hover:text-[#f2c301] transition-colors">
+                  Nail Extensions &amp; Sculpting
                 </Link>
               </li>
-              <li>
-                <Link href="/services/cosmetology" className="hover:text-[#f2c301] transition-colors">
-                  Advanced Cosmetology Diploma
+              <li className="pt-1">
+                <Link href="/#courses" className="text-xs font-bold text-[#f2c301] hover:underline">
+                  View All 18 Academy Courses &rarr;
                 </Link>
               </li>
             </ul>
@@ -172,7 +177,7 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-zinc-900 bg-black/60 py-6">
+      <div className="border-t border-zinc-900 bg-black/60 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
           <p>
             &copy; {new Date().getFullYear()} Yashree Institute of Cosmetology &amp; Aesthetic Academy. All rights reserved.

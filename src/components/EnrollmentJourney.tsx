@@ -1,3 +1,5 @@
+"use client";
+
 import { Sparkles, Compass, Package, Camera, Award, ArrowRight } from "lucide-react";
 import AnimatedReveal from "@/components/AnimatedReveal";
 
@@ -42,26 +44,26 @@ export default function EnrollmentJourney() {
   ];
 
   return (
-    <section className="py-20 lg:py-28 bg-white relative overflow-hidden border-b border-amber-100">
+    <section className="py-10 md:py-14 lg:py-16 bg-white relative overflow-hidden border-b border-amber-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <AnimatedReveal animation="fade-up">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-2.5">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Structured Student Roadmap</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-zinc-950 tracking-tight">
               Your 4-Step Journey to a Successful Beauty Career
             </h2>
-            <p className="mt-4 text-zinc-600 text-base sm:text-lg">
+            <p className="mt-2 text-zinc-600 text-sm sm:text-base">
               From zero experience to an internationally certified cosmetology professional with lifetime industry mentorship.
             </p>
           </div>
         </AnimatedReveal>
 
         {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 relative">
           {steps.map((item, idx) => {
             const Icon = item.icon;
             const delays = [0, 100, 200, 300] as const;
@@ -111,7 +113,7 @@ export default function EnrollmentJourney() {
 
         {/* Bottom Banner */}
         <AnimatedReveal animation="scale" delay={200}>
-          <div className="mt-14 p-8 rounded-3xl bg-zinc-950 text-white border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          <div className="mt-8 sm:mt-10 p-6 sm:p-8 rounded-3xl bg-zinc-950 text-white border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
             <div className="space-y-1 text-center md:text-left">
               <span className="text-xs font-bold uppercase tracking-widest text-[#f2c301]">
                 Next Batch Starting Soon
@@ -124,13 +126,18 @@ export default function EnrollmentJourney() {
               </p>
             </div>
 
-            <a
-              href="#contact"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn shadow-lg hover:scale-105 transition-all flex-shrink-0"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("open-enquiry-modal"));
+                }
+              }}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn shadow-lg hover:scale-105 transition-all flex-shrink-0 cursor-pointer"
             >
               <span>Apply for Admission</span>
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </button>
           </div>
         </AnimatedReveal>
       </div>

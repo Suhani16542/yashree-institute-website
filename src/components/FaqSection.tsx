@@ -44,19 +44,19 @@ export default function FaqSection() {
   };
 
   return (
-    <section className="py-20 lg:py-28 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
+    <section className="py-10 md:py-14 lg:py-16 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <AnimatedReveal animation="fade-up">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/90 border border-amber-300 text-zinc-900 text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100/90 border border-amber-300 text-zinc-900 text-xs font-bold uppercase tracking-wider mb-2.5 shadow-sm">
               <HelpCircle className="w-3.5 h-3.5 text-[#b8860b]" />
               <span>Got Questions?</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-zinc-950 tracking-tight">
               Frequently Asked Questions
             </h2>
-            <p className="mt-4 text-zinc-600 text-base">
+            <p className="mt-2 text-zinc-600 text-sm sm:text-base">
               Everything you need to know about admissions, batch sizes, practice kits, and certifications.
             </p>
           </div>
@@ -103,7 +103,7 @@ export default function FaqSection() {
 
         {/* Contact Helpline Callout */}
         <AnimatedReveal animation="fade-up" delay={200}>
-          <div className="mt-12 p-6 rounded-2xl bg-white border border-amber-200 shadow-sm text-center flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-8 p-5 sm:p-6 rounded-2xl bg-white border border-amber-200 shadow-sm text-center flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-left">
               <h4 className="text-sm font-bold text-zinc-900">Have more questions about admissions or fees?</h4>
               <p className="text-xs text-zinc-500 mt-0.5">Our counselors are available Monday to Sunday from 9 AM – 7 PM.</p>

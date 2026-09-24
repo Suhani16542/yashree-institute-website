@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 interface AnimatedRevealProps {
   children: React.ReactNode;
   animation?: "fade-up" | "fade-left" | "fade-right" | "scale";
-  delay?: 0 | 100 | 200 | 300 | 400 | 500;
+  delay?: number;
   className?: string;
 }
 

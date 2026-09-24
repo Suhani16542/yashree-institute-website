@@ -130,13 +130,18 @@ export default function HeroSection() {
 
         {/* Dual CTAs (Gold Shimmer "Enquire Now" + Dark Charcoal "Explore Courses") */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6 w-full sm:w-auto">
-          <a
-            href="#contact"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn gold-shadow hover:scale-105 transition-all duration-300"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("open-enquiry-modal"));
+              }
+            }}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn gold-shadow hover:scale-105 transition-all duration-300 cursor-pointer"
           >
             <span>Enquire Now</span>
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </button>
 
           <a
             href="#courses"

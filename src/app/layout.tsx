@@ -1,18 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import "./globals.css";
-
-const playfair = Playfair_Display({
-  variable: "--font-serif",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const viewport: Viewport = {
   themeColor: "#D4AF37",
@@ -21,6 +9,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://yashreeinstitute.com"),
   title: "Yashree Institute | Cosmetology & Aesthetic Academy Indore",
   description:
     "Yashree Institute is Indore's premier Cosmetology, Aesthetic & Beauty Academy mentored by Celebrity Makeup Artist Deepika Patidar. 100% practical training, certified courses, and live model practice.",
@@ -52,10 +41,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body
-        className={`${jakarta.variable} ${playfair.variable} font-sans antialiased bg-white text-zinc-900 selection:bg-[#F2C301]/30 selection:text-zinc-900`}
-      >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-sans antialiased bg-white text-zinc-900 selection:bg-[#F2C301]/30 selection:text-zinc-900">
         {children}
+        <FloatingWhatsApp />
       </body>
     </html>
   );

@@ -67,27 +67,27 @@ export default function AboutSection() {
   ];
 
   return (
-    <section id="about" className="py-20 lg:py-28 bg-white relative overflow-hidden">
+    <section id="about" className="py-10 md:py-14 lg:py-16 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Tag */}
         <AnimatedReveal animation="fade-up">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-2.5">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Founder &amp; Director&apos;s Profile</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-zinc-950 tracking-tight">
               International-Standard Beauty Education in Indore
             </h2>
-            <p className="mt-4 text-zinc-600 text-base sm:text-lg">
+            <p className="mt-2 text-zinc-600 text-sm sm:text-base">
               Mentored by Beauty Expert &amp; Celebrity Makeup Artist <strong>Deepika Patidar</strong>
             </p>
           </div>
         </AnimatedReveal>
 
         {/* Editorial Story Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center mb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center mb-10 sm:mb-12">
           
           {/* Left: High-Resolution Founder Photo & Award Showcase */}
           <div className="lg:col-span-5 relative">
@@ -191,12 +191,12 @@ export default function AboutSection() {
 
         {/* 8 Core Focus Disciplines from Brand Identity (Page 2 & 17) */}
         <AnimatedReveal animation="scale">
-          <div className="bg-[#faf8f5] rounded-3xl p-8 lg:p-10 border border-amber-200 shadow-sm">
-            <div className="text-center max-w-2xl mx-auto mb-8">
+          <div className="bg-[#faf8f5] rounded-3xl p-6 sm:p-8 border border-amber-200 shadow-sm">
+            <div className="text-center max-w-2xl mx-auto mb-6">
               <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
                 Yashree Institute Disciplines
               </span>
-              <h3 className="text-2xl font-serif font-bold text-zinc-950 mt-1">
+              <h3 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-1">
                 Core Beauty &amp; Aesthetic Fields
               </h3>
               <p className="text-xs text-zinc-500 mt-1">

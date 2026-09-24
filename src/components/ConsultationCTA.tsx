@@ -22,8 +22,21 @@ export default function ConsultationCTA() {
 
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Save Lead Details to Backend Database
+    try {
+      await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+    } catch (err) {
+      console.warn("Could not save inquiry to database:", err);
+    }
+
+    // 2. Open WhatsApp Direct Chat
     const text = `*New Admission / Service Inquiry - Yashree Institute*%0A%0A*Name:* ${encodeURIComponent(
       formData.name
     )}%0A*Phone:* ${encodeURIComponent(formData.phone)}%0A*Interested Program:* ${encodeURIComponent(
@@ -37,25 +50,25 @@ export default function ConsultationCTA() {
   };
 
   return (
-    <section id="contact" className="py-20 lg:py-28 bg-zinc-950 text-white relative overflow-hidden">
+    <section id="contact" className="py-10 md:py-14 lg:py-16 bg-zinc-950 text-white relative overflow-hidden">
       {/* Decorative Glow */}
       <div className="absolute top-1/2 left-0 w-96 h-96 bg-[#f2c301]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           {/* Left Column: Campus Info & Direct Contact */}
-          <div className="lg:col-span-6 space-y-8">
+          <div className="lg:col-span-6 space-y-6">
             <AnimatedReveal animation="fade-left">
               <div>
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-[#f2c301] text-xs font-bold uppercase tracking-wider mb-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[#f2c301] text-xs font-bold uppercase tracking-wider mb-2.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Get in Touch</span>
                 </div>
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-white tracking-tight leading-tight">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-white tracking-tight leading-tight">
                   Your Future in Beauty Starts Here!
                 </h2>
-                <p className="mt-4 text-zinc-400 text-base sm:text-lg leading-relaxed">
+                <p className="mt-2 text-zinc-400 text-sm sm:text-base leading-relaxed">
                   Connect with our academic counselors, schedule a personal visit to our Indore campus, or book a salon appointment with Deepika Patidar.
                 </p>
               </div>
@@ -152,12 +165,12 @@ export default function ConsultationCTA() {
           {/* Right Column: Interactive Consultation & Admission Form */}
           <div className="lg:col-span-6">
             <AnimatedReveal animation="fade-right">
-              <div className="bg-zinc-900 p-8 sm:p-10 rounded-3xl border border-zinc-800 shadow-2xl relative">
-                <div className="mb-6">
+              <div className="bg-zinc-900 p-6 sm:p-8 rounded-3xl border border-zinc-800 shadow-2xl relative">
+                <div className="mb-5">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#f2c301]">
                     Quick Admission &amp; Booking
                   </span>
-                  <h3 className="text-2xl font-serif font-bold text-white mt-1">
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-white mt-1">
                     Enquire for Next Batch or Service
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">

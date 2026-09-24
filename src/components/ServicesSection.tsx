@@ -50,32 +50,32 @@ export default function ServicesSection() {
   ];
 
   return (
-    <section id="services" className="py-20 lg:py-28 bg-white relative overflow-hidden">
+    <section id="services" className="py-10 md:py-14 lg:py-16 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <AnimatedReveal animation="fade-up">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[#b8860b] text-xs font-bold uppercase tracking-wider mb-2.5">
               <Heart className="w-3.5 h-3.5" />
               <span>Salon &amp; Parlour Services</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-zinc-950 tracking-tight">
               Get A Perfect Celebrity Look Done
             </h2>
-            <p className="mt-4 text-zinc-600 text-base sm:text-lg">
+            <p className="mt-2 text-zinc-600 text-sm sm:text-base">
               Look Like a Star, Feel Like a Queen — Handcrafted Bridal, Occasion, and Clinical Aesthetic Treatments.
             </p>
           </div>
         </AnimatedReveal>
 
         {/* Split Editorial Layout: Bridal on Left, Aesthetics on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch mb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-stretch mb-4">
           {/* Left: Bridal & Event Glamour */}
           <div className="lg:col-span-6 flex">
             <AnimatedReveal animation="fade-left" className="w-full flex">
-              <div className="w-full bg-[#faf8f5] rounded-3xl p-8 border border-amber-200 shadow-md flex flex-col justify-between">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-amber-200">
+              <div className="w-full bg-[#faf8f5] rounded-3xl p-6 sm:p-7 border border-amber-200 shadow-md flex flex-col justify-between">
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-amber-200">
                     <div>
                       <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
                         Celebrity Styling
@@ -141,11 +141,11 @@ export default function ServicesSection() {
           {/* Right: Clinical Aesthetics & Permanent Makeup */}
           <div className="lg:col-span-6 flex">
             <AnimatedReveal animation="fade-right" className="w-full flex">
-              <div className="w-full bg-zinc-950 text-white rounded-3xl p-8 border border-zinc-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+              <div className="w-full bg-zinc-950 text-white rounded-3xl p-6 sm:p-7 border border-zinc-800 shadow-2xl flex flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-72 h-72 bg-[#f2c301]/10 rounded-full blur-3xl pointer-events-none" />
 
-                <div className="space-y-6 relative z-10">
-                  <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                <div className="space-y-5 relative z-10">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-zinc-800">
                     <div>
                       <span className="text-xs font-bold uppercase tracking-widest text-[#f2c301]">
                         Clinical &amp; Semi-Permanent

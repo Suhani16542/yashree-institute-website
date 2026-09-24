@@ -71,29 +71,29 @@ export default function GalleryShowcase() {
       : GALLERY_ITEMS.filter((item) => item.category === activeTab);
 
   return (
-    <section id="gallery" className="py-20 lg:py-28 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
+    <section id="gallery" className="py-10 md:py-14 lg:py-16 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/90 border border-amber-300 text-zinc-900 text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+        <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100/90 border border-amber-300 text-zinc-900 text-xs font-bold uppercase tracking-wider mb-2.5 shadow-sm">
             <Trophy className="w-3.5 h-3.5 text-[#b8860b]" />
             <span>Moments of Excellence</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-zinc-950 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-zinc-950 tracking-tight">
             Awards, Seminars &amp; Convocation Gallery
           </h2>
-          <p className="mt-4 text-zinc-600 text-base sm:text-lg">
+          <p className="mt-2 text-zinc-600 text-sm sm:text-base">
             Authentic moments from Yashree Institute — national award stages, celebrity masterclasses, and proud student graduations.
           </p>
         </div>
 
         {/* Filter Navigation */}
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-12">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold tracking-wide transition-all ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold tracking-wide transition-all cursor-pointer ${
                 activeTab === tab
                   ? "bg-zinc-950 text-[#f2c301] shadow-md scale-105"
                   : "bg-white text-zinc-700 hover:bg-amber-50 hover:text-zinc-950 border border-zinc-200"
@@ -105,7 +105,7 @@ export default function GalleryShowcase() {
         </div>
 
         {/* Asymmetrical Editorial Gallery Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
           {filteredItems.map((item, idx) => {
             const isWide = item.isFeatured;
             return (
@@ -159,6 +159,18 @@ export default function GalleryShowcase() {
               </div>
             );
           })}
+        </div>
+
+        {/* Bottom CTA to dedicated /gallery page */}
+        <div className="mt-8 text-center">
+          <a
+            href="/gallery"
+            className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn gold-shadow hover:scale-105 transition-all duration-200"
+          >
+            <Trophy className="w-4 h-4" />
+            <span>Explore Complete Gallery &amp; Media Archive</span>
+            <Sparkles className="w-4 h-4" />
+          </a>
         </div>
       </div>
     </section>
