@@ -4,40 +4,75 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, User, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, KeyRound } from "lucide-react";
+import { Lock, Mail, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { authApi } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("yashree2026");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingInitialAuth, setCheckingInitialAuth] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // If already logged in, redirect to admin dashboard
-    const isAuth = sessionStorage.getItem("yashree_admin_auth");
-    if (isAuth === "true") {
-      router.push("/admin");
+    // Check if already authenticated via session cookie
+    async function checkCurrentSession() {
+      try {
+        const user = await authApi.getMe();
+        if (user) {
+          router.push("/admin");
+          return;
+        }
+      } catch {
+        // Not authenticated, stay on login page
+      } finally {
+        setCheckingInitialAuth(false);
+      }
     }
+    checkCurrentSession();
   }, [router]);
 
-  const proceedToDashboard = (user: string) => {
-    setLoading(true);
-    sessionStorage.setItem("yashree_admin_auth", "true");
-    sessionStorage.setItem("yashree_admin_user", user || "Admin");
-    setTimeout(() => {
-      router.push("/admin");
-    }, 200);
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Allow ANY username and password in demo/testing mode
-    proceedToDashboard(username || "Admin");
+    setErrorMessage(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMessage("Please enter your admin email address.");
+      return;
+    }
+    if (!password) {
+      setErrorMessage("Please enter your password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await authApi.login({
+        email: trimmedEmail,
+        password,
+      });
+
+      router.push("/admin");
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(
+        err?.message || "Invalid credentials. Please verify your email and password."
+      );
+    }
   };
 
-  const handleOneClickLogin = () => {
-    proceedToDashboard("Administrator");
-  };
+  if (checkingInitialAuth) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-[#f2c301] animate-spin" />
+          <p className="text-xs text-zinc-400 font-medium">Verifying admin session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col justify-between relative overflow-hidden selection:bg-[#f2c301]/30">
@@ -48,14 +83,17 @@ export default function AdminLoginPage() {
       {/* Header */}
       <header className="p-6 relative z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Yashree Institute Website</span>
           </Link>
 
           <span className="text-xs text-[#f2c301] font-mono flex items-center gap-1.5 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Demo Mode Active</span>
+            <span>Admin Portal</span>
           </span>
         </div>
       </header>
@@ -84,56 +122,46 @@ export default function AdminLoginPage() {
               Sign In to Admin Desk
             </h1>
             <p className="text-xs text-zinc-400">
-              Demo mode enabled: Click the button below or enter any username/password.
+              Enter your authorized Yashree administrator credentials.
             </p>
           </div>
 
-          {/* Quick 1-Click Access Button */}
-          <button
-            type="button"
-            onClick={handleOneClickLogin}
-            disabled={loading}
-            className="w-full py-4 rounded-2xl text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 shimmer-btn gold-shadow hover:scale-102 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
-          >
-            <KeyRound className="w-4 h-4" />
-            <span>{loading ? "Logging in..." : "⚡ 1-Click Direct Demo Login"}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2.5 animate-in fade-in-0 duration-200">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-          <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-zinc-800" />
-            <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
-              Or Custom Sign In
-            </span>
-            <span className="h-px flex-1 bg-zinc-800" />
-          </div>
-
-          {/* Custom Form */}
+          {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                Username or Email
+                Admin Email <span className="text-[#f2c301] font-bold">*</span>
               </label>
               <div className="relative">
                 <input
-                  type="text"
-                  placeholder="admin or any username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  required
+                  placeholder="admin@yashreeinstitute.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-zinc-800/90 border border-zinc-700 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#f2c301] transition-colors"
                 />
-                <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                Passcode / Password
+                Password <span className="text-[#f2c301] font-bold">*</span>
               </label>
               <div className="relative">
                 <input
                   type="password"
-                  placeholder="Any password (e.g. yashree2026 or 123)"
+                  required
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-zinc-800/90 border border-zinc-700 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#f2c301] transition-colors"
@@ -145,9 +173,19 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-amber-400/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-950 bg-gradient-to-r from-[#f2c301] via-[#d4af37] to-[#e6b800] hover:brightness-105 active:scale-[0.99] transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer font-sans disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>Sign In with Entered Details</span>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>

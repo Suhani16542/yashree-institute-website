@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
+import { internshipsApi } from "@/lib/api";
 
 export default function InternshipForm() {
   const [formData, setFormData] = useState({
@@ -106,23 +107,16 @@ export default function InternshipForm() {
       data.append("message", formData.message.trim());
       data.append("resume", resumeFile);
 
-      const res = await fetch("/api/internship", {
-        method: "POST",
-        body: data,
-      });
+      const result = await internshipsApi.submit(data);
 
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to submit application.");
-      }
-
-      setSubmittedApplicationId(json.applicationId);
+      setSubmittedApplicationId(result.id || result._id || "YSH-INT");
       setStatus("success");
     } catch (err: any) {
       console.error("Submission error:", err);
       setStatus("error");
-      setErrorMessage(err.message || "Something went wrong. Please check your network and try again.");
+      setErrorMessage(
+        err.message || "Something went wrong. Please check your network and try again."
+      );
     }
   };
 

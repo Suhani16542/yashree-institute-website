@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -21,6 +20,9 @@ import {
   Layers,
 } from "lucide-react";
 import { INITIAL_GALLERY_ITEMS, GalleryItem } from "@/data/gallerySeed";
+import { galleryApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
+import { GalleryItemData } from "@/lib/api/types";
 
 const CATEGORIES = [
   "All Moments",
@@ -30,6 +32,18 @@ const CATEGORIES = [
   "Practical Training",
   "Salon & Studio",
 ] as const;
+
+function formatGalleryItemFromApi(it: GalleryItemData, idx: number): GalleryItem {
+  return {
+    id: it.id || it._id || `gal-${idx}`,
+    title: it.caption ? it.caption.slice(0, 60) : `Gallery Moment ${idx + 1}`,
+    category: (it.category as GalleryItem["category"]) || "Awards & Seminars",
+    image: resolveAssetUrl(it.image || it.imageUrl) || "/images/gallery_placeholder.jpg",
+    caption: it.caption || "Excellence and artistry at Yashree Institute.",
+    date: it.createdAt ? new Date(it.createdAt).toLocaleDateString() : "Recent",
+    isFeatured: it.featured,
+  };
+}
 
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>(INITIAL_GALLERY_ITEMS);
@@ -41,10 +55,9 @@ export default function GalleryPage() {
   useEffect(() => {
     async function loadGallery() {
       try {
-        const res = await fetch("/api/gallery");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setItems(data.items);
+        const res = await galleryApi.getPublic();
+        if (res.items && res.items.length > 0) {
+          setItems(res.items.map(formatGalleryItemFromApi));
         }
       } catch (err) {
         console.warn("Using initial gallery items:", err);
@@ -54,6 +67,7 @@ export default function GalleryPage() {
     }
     loadGallery();
   }, []);
+
 
   const filteredItems =
     activeCategory === "All Moments"
@@ -218,13 +232,10 @@ export default function GalleryPage() {
                   >
                     {/* Image Area */}
                     <div className="relative aspect-[4/3] bg-zinc-950 overflow-hidden">
-                      <Image
+                      <img
                         src={item.image}
                         alt={item.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
-                        unoptimized={item.image.startsWith("/uploads/") || item.image.startsWith("http")}
+                        className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
 
@@ -318,14 +329,11 @@ export default function GalleryPage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Image Column */}
-              <div className="relative flex-1 min-h-[300px] sm:min-h-[450px] lg:min-h-[550px] bg-black">
-                <Image
+              <div className="relative flex-1 min-h-[300px] sm:min-h-[450px] lg:min-h-[550px] bg-black flex items-center justify-center p-2">
+                <img
                   src={currentLightboxItem.image}
                   alt={currentLightboxItem.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 700px"
-                  className="object-contain p-2"
-                  unoptimized={currentLightboxItem.image.startsWith("/uploads/") || currentLightboxItem.image.startsWith("http")}
+                  className="w-full h-full max-h-[85vh] object-contain p-2"
                 />
               </div>
 

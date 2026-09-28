@@ -7,12 +7,12 @@ let content = fs.readFileSync(filePath, 'utf8');
 // Helper to replace gallery and hero for a course slug
 function updateCourse(slug, heroImage, galleryArray) {
   const slugRegex = new RegExp('(slug:\\s*["\']' + slug + '["\'][\\s\\S]*?heroImage:\\s*["\'])([^"\']+)(["\'][\\s\\S]*?gallery:\\s*\\[)([\\s\\S]*?)(\\]\\s*,\\s*whyLearn:)');
-  
+
   if (!slugRegex.test(content)) {
     console.error(`Course slug "${slug}" not found in coursesData.ts!`);
     return;
   }
-  
+
   const galleryString = JSON.stringify(galleryArray, null, 6)
     .replace(/"([^"]+)":/g, '$1:')
     .replace(/"/g, '"')

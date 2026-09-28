@@ -21,6 +21,9 @@ import {
   Layers,
 } from "lucide-react";
 import { INITIAL_ACADEMY_VIDEOS, AcademyVideo } from "@/data/academyVideosSeed";
+import { academyVideosApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
+import { AcademyVideoItem } from "@/lib/api/types";
 
 const CATEGORIES = [
   "All Videos",
@@ -30,6 +33,31 @@ const CATEGORIES = [
   "Campus Tour & Facilities",
   "Student Testimonials",
 ] as const;
+
+function formatAcademyVideoFromApi(v: AcademyVideoItem, idx: number): AcademyVideo {
+  const vidUrl = v.videoUrl ? resolveAssetUrl(v.videoUrl) || v.videoUrl : "";
+  const isYoutube = vidUrl.includes("youtube.com") || vidUrl.includes("youtu.be");
+  let embedUrl = vidUrl;
+  if (isYoutube) {
+    const yId = vidUrl.includes("v=")
+      ? vidUrl.split("v=")[1]?.split("&")[0]
+      : vidUrl.split("/").pop()?.split("?")[0];
+    embedUrl = `https://www.youtube-nocookie.com/embed/${yId}?autoplay=1`;
+  }
+
+  return {
+    id: v.id || v._id || `vid-${idx}`,
+    title: v.title,
+    category: (v.category as AcademyVideo["category"]) || "Masterclasses & Demos",
+    videoUrl: vidUrl,
+    embedUrl,
+    thumbnail: resolveAssetUrl(v.thumbnailUrl) || "/images/celebrity_makeup.jpg",
+    duration: v.duration || "Video",
+    description: "Hands-on practical demo and masterclass session at Yashree Institute.",
+    date: v.createdAt ? new Date(v.createdAt).toLocaleDateString() : "Recent",
+    isFeatured: false,
+  };
+}
 
 export default function AcademyPage() {
   const [videos, setVideos] = useState<AcademyVideo[]>(INITIAL_ACADEMY_VIDEOS);
@@ -41,10 +69,9 @@ export default function AcademyPage() {
   useEffect(() => {
     async function loadVideos() {
       try {
-        const res = await fetch("/api/academy-videos");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setVideos(data.items);
+        const res = await academyVideosApi.getPublic();
+        if (res.videos && res.videos.length > 0) {
+          setVideos(res.videos.map(formatAcademyVideoFromApi));
         }
       } catch (err) {
         console.warn("Using default academy videos:", err);
@@ -54,6 +81,7 @@ export default function AcademyPage() {
     }
     loadVideos();
   }, []);
+
 
   const filteredVideos =
     activeCategory === "All Videos"

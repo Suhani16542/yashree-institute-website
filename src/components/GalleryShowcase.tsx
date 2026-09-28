@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 import { Trophy, Award, Sparkles } from "lucide-react";
+import { galleryApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
 
 interface GalleryItem {
   id: string;
@@ -62,13 +63,44 @@ const GALLERY_ITEMS: GalleryItem[] = [
 
 const TABS = ["All Showcase", "Celebrity", "Seminars", "Training", "Convocation"] as const;
 
+function mapCategory(cat: string): GalleryItem["category"] {
+  if (cat.includes("Celebrity")) return "Celebrity";
+  if (cat.includes("Convocation")) return "Convocation";
+  if (cat.includes("Training")) return "Training";
+  return "Seminars";
+}
+
 export default function GalleryShowcase() {
+  const [items, setItems] = useState<GalleryItem[]>(GALLERY_ITEMS);
   const [activeTab, setActiveTab] = useState<string>("All Showcase");
+
+  useEffect(() => {
+    async function loadGallery() {
+      try {
+        const res = await galleryApi.getPublic();
+        if (res.items && res.items.length > 0) {
+          const mapped: GalleryItem[] = res.items.map((it, idx) => ({
+            id: it.id || it._id || `gal-${idx}`,
+            title: it.caption ? it.caption.slice(0, 50) : `Gallery Moment ${idx + 1}`,
+            category: mapCategory(it.category || "Seminars"),
+            image: resolveAssetUrl(it.image || it.imageUrl) || "/images/gallery_placeholder.jpg",
+            caption: it.caption || "Moments of Excellence & Artistry at Yashree Institute.",
+            isFeatured: it.featured,
+          }));
+          setItems(mapped);
+        }
+      } catch (err) {
+        console.warn("Using default gallery items:", err);
+      }
+    }
+    loadGallery();
+  }, []);
 
   const filteredItems =
     activeTab === "All Showcase"
-      ? GALLERY_ITEMS
-      : GALLERY_ITEMS.filter((item) => item.category === activeTab);
+      ? items
+      : items.filter((item) => item.category === activeTab);
+
 
   return (
     <section id="gallery" className="py-10 md:py-14 lg:py-16 bg-[#faf8f5] relative border-b border-amber-100 overflow-hidden">
@@ -120,12 +152,10 @@ export default function GalleryShowcase() {
                     isWide ? "aspect-[16/9]" : "aspect-[4/3]"
                   }`}
                 >
-                  <Image
+                  <img
                     src={item.image}
                     alt={item.title}
-                    fill
-                    sizes={isWide ? "(max-width: 768px) 100vw, 800px" : "(max-width: 768px) 100vw, 400px"}
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity" />
 

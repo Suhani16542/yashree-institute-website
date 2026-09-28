@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -25,6 +24,40 @@ import {
   Phone,
 } from "lucide-react";
 import { INITIAL_EVENTS, AcademyEvent } from "@/data/eventsSeed";
+import { eventsApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
+import { EventItem } from "@/lib/api/types";
+
+function formatEventFromApi(e: EventItem, idx: number): AcademyEvent {
+  const d = e.eventDate ? new Date(e.eventDate) : new Date();
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const month = isNaN(d.getTime()) ? "MAR" : months[d.getMonth()];
+  const day = isNaN(d.getTime()) ? "15" : String(d.getDate()).padStart(2, "0");
+  const year = isNaN(d.getTime()) ? "2026" : String(d.getFullYear());
+
+  return {
+    id: e.id || e._id || `event-${idx}`,
+    title: e.title,
+    category: (e.category as AcademyEvent["category"]) || "Masterclass",
+    date: isNaN(d.getTime()) ? e.eventDate : `${month} ${day}, ${year}`,
+    day,
+    month,
+    year,
+    time: "10:00 AM - 5:00 PM IST",
+    venue: e.location || "Yashree Institute Campus, Indore",
+    instructor: "Deepika Patidar (Founder & Celebrity Artist)",
+    image: resolveAssetUrl(e.bannerImage || e.bannerImageUrl) || "/images/seminar_awards_grid.jpg",
+    description: e.description,
+    seatsStatus: "Fast Filling",
+    highlights: [
+      "Authorized Certificate",
+      "Live Model Hands-on Practice",
+      "Free Practice Cosmetics Kit",
+      "Personal Mentorship",
+    ],
+    isFeatured: e.featured,
+  };
+}
 
 const TABS = ["All Masterclasses", "Masterclass", "Live Seminar", "Upcoming Workshop", "Annual Convocation"] as const;
 
@@ -36,10 +69,13 @@ export default function EventsPage() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch("/api/events");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setEvents(data.items);
+        const res = await eventsApi.getPublic();
+        if (res.events && res.events.length > 0) {
+          const mapped = res.events.map(formatEventFromApi);
+          setEvents(mapped);
+          if (mapped[0]) {
+            setSelectedEventId(mapped[0].id);
+          }
         }
       } catch (err) {
         console.warn("Using default events seed:", err);
@@ -47,6 +83,7 @@ export default function EventsPage() {
     }
     loadEvents();
   }, []);
+
 
   const filteredEvents =
     activeTab === "All Masterclasses"
@@ -157,13 +194,10 @@ export default function EventsPage() {
                 <div>
                   {/* Visual Screen */}
                   <div className="relative aspect-[16/10] sm:aspect-[16/9] bg-black overflow-hidden">
-                    <Image
+                    <img
                       src={activeEvent.image}
                       alt={activeEvent.title}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 700px"
-                      className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                      priority
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-95" />
 

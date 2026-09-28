@@ -47,11 +47,93 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
-import { InquiryLead } from "@/data/inquiriesSeed";
-import { GalleryItem } from "@/data/gallerySeed";
-import { AcademyVideo } from "@/data/academyVideosSeed";
-import { AcademyEvent } from "@/data/eventsSeed";
-import { InternshipApplication } from "@/app/api/internship/route";
+import {
+  authApi,
+  inquiriesApi,
+  internshipsApi,
+  eventsApi,
+  galleryApi,
+  academyVideosApi,
+  resolveAssetUrl,
+  AuthUser,
+} from "@/lib/api";
+import { parseVideoEmbed } from "@/data/academyVideosSeed";
+
+export interface InquiryLead {
+  id: string;
+  name: string;
+  phone: string;
+  course: string;
+  mode: string;
+  message?: string | null;
+  status: "New" | "Contacted" | "Follow-up" | "Converted" | "Closed" | string;
+  createdAt: string;
+}
+
+export interface InternshipApplication {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  city: string;
+  education: string;
+  areaOfInterest: string;
+  preferredArea: string;
+  message?: string | null;
+  resumeFileUrl?: string;
+  resumeFileName?: string;
+  resumeUrl?: string;
+  fileSizeBytes?: number;
+  status: "New" | "Reviewed" | "Shortlisted" | "Contacted" | "Rejected" | "Pending Review" | "Archived" | string;
+  createdAt: string;
+}
+
+
+export interface AcademyEvent {
+  id: string;
+  title: string;
+  category: "Upcoming Workshop" | "Live Seminar" | "Annual Convocation" | "Masterclass" | string;
+  date: string;
+  day?: string;
+  month?: string;
+  year?: string;
+  time: string;
+  venue: string;
+  instructor: string;
+  seatsStatus: string;
+  image: string;
+  description: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  highlights: string[];
+  isFeatured?: boolean;
+  isPublished?: boolean;
+  registrationUrl?: string;
+  createdAt?: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  title: string;
+  category: "Awards & Seminars" | "Student Convocation" | "Celebrity Makeup" | "Practical Training" | "Salon & Studio" | string;
+  image: string;
+  caption: string;
+  isFeatured?: boolean;
+  createdAt?: string;
+}
+
+export interface AcademyVideo {
+  id: string;
+  title: string;
+  category: "Masterclasses & Demos" | "Student Practice & Reels" | "Awards & Ceremonies" | "Campus Tour & Facilities" | "Student Testimonials" | string;
+  videoUrl: string;
+  embedUrl: string;
+  thumbnail: string;
+  description: string;
+  duration: string;
+  isFeatured?: boolean;
+  date?: string;
+}
 
 const GALLERY_CATEGORIES: GalleryItem["category"][] = [
   "Awards & Seminars",
@@ -86,12 +168,142 @@ const INTERNSHIP_STATUSES = [
   "Archived",
 ];
 
+function mapInquiryItem(item: any): InquiryLead {
+  const rawStatus = (item.status || "NEW").toUpperCase();
+  let mappedStatus = "New";
+  if (rawStatus === "CONTACTED") mappedStatus = "Contacted";
+  else if (rawStatus === "FOLLOW_UP") mappedStatus = "Follow-up";
+  else if (rawStatus === "CONVERTED") mappedStatus = "Converted";
+  else if (rawStatus === "CLOSED") mappedStatus = "Closed";
+
+  return {
+    id: item.id || item._id,
+    name: item.name || "",
+    phone: item.phone || "",
+    course: item.course || "",
+    mode: item.mode || "",
+    message: item.message || "",
+    status: mappedStatus,
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapInternshipItem(item: any): InternshipApplication {
+  const rawStatus = (item.status || "NEW").toUpperCase();
+  let mappedStatus = "New";
+  if (rawStatus === "REVIEWING") mappedStatus = "Reviewed";
+  else if (rawStatus === "SHORTLISTED") mappedStatus = "Shortlisted";
+  else if (rawStatus === "INTERVIEW" || rawStatus === "CONTACTED") mappedStatus = "Contacted";
+  else if (rawStatus === "REJECTED") mappedStatus = "Rejected";
+  else if (rawStatus === "CLOSED") mappedStatus = "Archived";
+
+  const resumeUrl = item.id ? internshipsApi.getResumeUrl(item.id) : (item.resumeUrl ? resolveAssetUrl(item.resumeUrl) : undefined);
+  const resumeName = item.resumeOriginalName || (item.resumeUrl ? item.resumeUrl.split("/").pop() : "Candidate_Resume.pdf");
+
+  return {
+    id: item.id || item._id,
+    fullName: item.fullName || item.name || "",
+    phone: item.phone || "",
+    email: item.email || "",
+    city: item.city || "",
+    education: item.education || "",
+    areaOfInterest: item.areaOfInterest || "",
+    preferredArea: item.preferredArea || "",
+    message: item.message || "",
+    resumeFileUrl: resumeUrl,
+    resumeUrl: resumeUrl,
+    resumeFileName: resumeName,
+    status: mappedStatus,
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapEventItem(e: any): AcademyEvent {
+  const d = e.eventDate || e.date || new Date().toISOString();
+  let dateObj: Date;
+  try {
+    dateObj = new Date(d);
+    if (isNaN(dateObj.getTime())) dateObj = new Date();
+  } catch {
+    dateObj = new Date();
+  }
+
+  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+  return {
+    id: e.id || e._id || `evt-${Date.now()}`,
+    title: e.title || "Academy Event",
+    category: e.category || "Upcoming Workshop",
+    date: e.date || `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
+    day: String(dateObj.getDate()).padStart(2, "0"),
+    month: monthNames[dateObj.getMonth()],
+    year: String(dateObj.getFullYear()),
+    time: e.time || "10:00 AM – 4:00 PM",
+    venue: e.location || e.venue || "Yashree Institute Indore Campus",
+    instructor: e.instructor || "Deepika Patidar (Celebrity Makeup Artist)",
+    seatsStatus: e.seatsStatus || "Registrations Open",
+    image: resolveAssetUrl(e.bannerImage || e.bannerImageUrl || e.image, "/images/cosmetology_training_hero.jpg"),
+    description: e.description || "",
+    shortDescription: e.shortDescription || e.description || "",
+    highlights: Array.isArray(e.highlights)
+      ? e.highlights
+      : typeof e.highlights === "string"
+      ? (() => {
+          try {
+            return JSON.parse(e.highlights);
+          } catch {
+            return [e.highlights];
+          }
+        })()
+      : [
+          "Live Step-by-Step Model Demo",
+          "Authorized Masterclass Certificate",
+          "Free Practice Cosmetics & Vanity Brushes",
+        ],
+    isFeatured: Boolean(e.featured ?? e.isFeatured),
+    isPublished: e.published !== undefined ? e.published : (e.isPublished !== false),
+    createdAt: e.createdAt,
+  };
+}
+
+function mapGalleryItem(g: any): GalleryItem {
+  return {
+    id: g.id || g._id || `gal-${Date.now()}`,
+    title: g.caption || g.title || "Gallery Moment",
+    category: g.category || "Awards & Seminars",
+    image: resolveAssetUrl(g.image || g.imageUrl, "/images/award_ceremony_team.jpg"),
+    caption: g.caption || g.title || "",
+    isFeatured: Boolean(g.featured ?? g.isFeatured),
+    createdAt: g.createdAt,
+  };
+}
+
+function mapAcademyVideo(v: any): AcademyVideo {
+  const vidUrl = v.videoUrl || "";
+  const { embedUrl, thumbnail: autoThumb } = parseVideoEmbed(vidUrl);
+  const resolvedThumb = resolveAssetUrl(v.thumbnailUrl || v.thumbnail, autoThumb);
+
+  return {
+    id: v.id || v._id || `vid-${Date.now()}`,
+    title: v.title || "Academy Masterclass Video",
+    category: v.category || "Masterclasses & Demos",
+    videoUrl: vidUrl,
+    embedUrl,
+    thumbnail: resolvedThumb,
+    description: v.description || "",
+    duration: v.duration || "Video",
+    isFeatured: Boolean(v.featured ?? v.isFeatured),
+    date: v.createdAt ? new Date(v.createdAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+  };
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     "overview" | "inquiries" | "internships" | "events" | "gallery" | "videos"
   >("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminUser, setAdminUser] = useState<AuthUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -162,39 +374,51 @@ export default function AdminDashboardPage() {
   const [vidFile, setVidFile] = useState<File | null>(null);
   const [vidUploading, setVidUploading] = useState(false);
 
-  // Auth Guard
+  // Auth Guard with real backend session verification
   useEffect(() => {
-    const isAuth = sessionStorage.getItem("yashree_admin_auth");
-    if (isAuth !== "true") {
-      router.push("/admin/login");
-    } else {
-      setIsAuthenticated(true);
-      fetchAllData();
+    async function verifyAuthAndLoad() {
+      try {
+        const user = await authApi.getMe();
+        if (user) {
+          setAdminUser(user);
+          setIsAuthenticated(true);
+          fetchAllData();
+        } else {
+          router.push("/admin/login");
+        }
+      } catch {
+        router.push("/admin/login");
+      }
     }
+    verifyAuthAndLoad();
   }, [router]);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
       const [inqRes, internRes, evtRes, galRes, vidRes] = await Promise.all([
-        fetch("/api/inquiries"),
-        fetch("/api/internship"),
-        fetch("/api/events?all=true"),
-        fetch("/api/gallery"),
-        fetch("/api/academy-videos"),
+        inquiriesApi.getAll({ limit: 100 }).catch(() => ({ inquiries: [] })),
+        internshipsApi.getAll({ limit: 100 }).catch(() => ({ internships: [] })),
+        eventsApi.getAllAdmin({ limit: 100 }).catch(() => ({ events: [] })),
+        galleryApi.getPublic({ limit: 100 }).catch(() => ({ items: [] })),
+        academyVideosApi.getPublic({ limit: 100 }).catch(() => ({ videos: [] })),
       ]);
 
-      const inqData = await inqRes.json();
-      const internData = await internRes.json();
-      const evtData = await evtRes.json();
-      const galData = await galRes.json();
-      const vidData = await vidRes.json();
-
-      if (inqData.success && Array.isArray(inqData.items)) setInquiries(inqData.items);
-      if (internData.success && Array.isArray(internData.items)) setInternships(internData.items);
-      if (evtData.success && Array.isArray(evtData.items)) setEvents(evtData.items);
-      if (galData.success && Array.isArray(galData.items)) setGalleryItems(galData.items);
-      if (vidData.success && Array.isArray(vidData.items)) setAcademyVideos(vidData.items);
+      if (Array.isArray(inqRes?.inquiries)) {
+        setInquiries(inqRes.inquiries.map(mapInquiryItem));
+      }
+      if (Array.isArray(internRes?.internships)) {
+        setInternships(internRes.internships.map(mapInternshipItem));
+      }
+      if (Array.isArray(evtRes?.events)) {
+        setEvents(evtRes.events.map(mapEventItem));
+      }
+      if (Array.isArray(galRes?.items)) {
+        setGalleryItems(galRes.items.map(mapGalleryItem));
+      }
+      if (Array.isArray(vidRes?.videos)) {
+        setAcademyVideos(vidRes.videos.map(mapAcademyVideo));
+      }
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
     } finally {
@@ -202,45 +426,50 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("yashree_admin_auth");
-    sessionStorage.removeItem("yashree_admin_user");
-    router.push("/admin/login");
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.warn("Logout error:", err);
+    } finally {
+      router.push("/admin/login");
+    }
   };
 
   // ==========================================
   // INQUIRY STATUS HANDLERS
   // ==========================================
-  const handleUpdateLeadStatus = async (id: string, newStatus: InquiryLead["status"]) => {
+  const handleUpdateLeadStatus = async (id: string, newStatus: string) => {
+    const backendStatus =
+      newStatus === "New"
+        ? "NEW"
+        : newStatus === "Contacted"
+        ? "CONTACTED"
+        : newStatus === "Follow-up"
+        ? "FOLLOW_UP"
+        : newStatus === "Converted"
+        ? "CONVERTED"
+        : "CLOSED";
+
     try {
-      const res = await fetch("/api/inquiries", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setInquiries((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
-        );
-        setFeedback({ type: "success", text: `Inquiry status updated to "${newStatus}"` });
-      }
+      await inquiriesApi.updateStatus(id, backendStatus as any);
+      setInquiries((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      );
+      setFeedback({ type: "success", text: `Inquiry status updated to "${newStatus}"` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error updating status: " + err.message });
+      setFeedback({ type: "error", text: "Error updating status: " + (err.message || "Failed") });
     }
   };
 
   const handleDeleteLead = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete inquiry from ${name}?`)) return;
     try {
-      const res = await fetch(`/api/inquiries?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setInquiries((prev) => prev.filter((item) => item.id !== id));
-        setFeedback({ type: "success", text: `Inquiry from ${name} deleted.` });
-      }
+      await inquiriesApi.delete(id);
+      setInquiries((prev) => prev.filter((item) => item.id !== id));
+      setFeedback({ type: "success", text: `Inquiry from ${name} deleted.` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting inquiry: " + err.message });
+      setFeedback({ type: "error", text: "Error deleting inquiry: " + (err.message || "Failed") });
     }
   };
 
@@ -248,43 +477,44 @@ export default function AdminDashboardPage() {
   // INTERNSHIP APPLICATION HANDLERS
   // ==========================================
   const handleUpdateInternshipStatus = async (id: string, newStatus: string) => {
+    const backendStatus =
+      newStatus === "New"
+        ? "NEW"
+        : newStatus === "Reviewed"
+        ? "REVIEWING"
+        : newStatus === "Shortlisted"
+        ? "SHORTLISTED"
+        : newStatus === "Contacted"
+        ? "INTERVIEW"
+        : newStatus === "Rejected"
+        ? "REJECTED"
+        : "CLOSED";
+
     try {
-      const res = await fetch("/api/internship", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setInternships((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, status: newStatus as any } : item))
-        );
-        if (selectedInternship && selectedInternship.id === id) {
-          setSelectedInternship((prev) => (prev ? { ...prev, status: newStatus as any } : null));
-        }
-        setFeedback({ type: "success", text: `Application status updated to "${newStatus}"` });
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to update status." });
+      await internshipsApi.updateStatus(id, backendStatus as any);
+      setInternships((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: newStatus as any } : item))
+      );
+      if (selectedInternship && selectedInternship.id === id) {
+        setSelectedInternship((prev) => (prev ? { ...prev, status: newStatus as any } : null));
       }
+      setFeedback({ type: "success", text: `Application status updated to "${newStatus}"` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error updating status: " + err.message });
+      setFeedback({ type: "error", text: "Error updating status: " + (err.message || "Failed") });
     }
   };
 
   const handleDeleteInternship = async (id: string, candidateName: string) => {
     if (!confirm(`Are you sure you want to delete the internship application of "${candidateName}"?`)) return;
     try {
-      const res = await fetch(`/api/internship?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setInternships((prev) => prev.filter((item) => item.id !== id));
-        if (selectedInternship?.id === id) {
-          setSelectedInternship(null);
-        }
-        setFeedback({ type: "success", text: `Application of ${candidateName} deleted.` });
+      await internshipsApi.delete(id);
+      setInternships((prev) => prev.filter((item) => item.id !== id));
+      if (selectedInternship?.id === id) {
+        setSelectedInternship(null);
       }
+      setFeedback({ type: "success", text: `Application of ${candidateName} deleted.` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting application: " + err.message });
+      setFeedback({ type: "error", text: "Error deleting application: " + (err.message || "Failed") });
     }
   };
 
@@ -347,50 +577,30 @@ export default function AdminDashboardPage() {
     setEvtUploading(true);
     try {
       const formData = new FormData();
-      if (editingEventId) {
-        formData.append("id", editingEventId);
-      }
       formData.append("title", evtTitle.trim());
       formData.append("category", evtCategory);
-      formData.append("date", evtDate.trim());
-      formData.append("time", evtTime.trim());
-      formData.append("venue", evtVenue.trim());
-      formData.append("instructor", evtInstructor.trim());
-      formData.append("seatsStatus", evtSeatsStatus.trim());
-      formData.append("description", evtDescription.trim());
-      formData.append("shortDescription", evtShortDesc.trim());
-      formData.append("isFeatured", String(evtIsFeatured));
-      formData.append("isPublished", String(evtIsPublished));
-
-      const parsedHighlights = evtHighlights
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      formData.append("highlights", JSON.stringify(parsedHighlights));
+      formData.append("eventDate", evtDate.trim());
+      formData.append("location", evtVenue.trim() || "Yashree Institute Indore Campus");
+      formData.append("description", evtDescription.trim() || evtShortDesc.trim() || evtTitle.trim());
+      formData.append("published", String(evtIsPublished));
+      formData.append("featured", String(evtIsFeatured));
 
       if (evtFile) {
-        formData.append("file", evtFile);
-      } else {
-        formData.append("image", evtImageUrl);
+        formData.append("bannerImage", evtFile);
       }
 
-      const method = eventFormMode === "create" ? "POST" : "PATCH";
-      const res = await fetch("/api/events", {
-        method,
-        body: formData,
+      if (eventFormMode === "create") {
+        await eventsApi.create(formData);
+      } else if (editingEventId) {
+        await eventsApi.update(editingEventId, formData);
+      }
+
+      setFeedback({
+        type: "success",
+        text: eventFormMode === "create" ? "✨ Event created and published!" : "✨ Event updated successfully!",
       });
-
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({
-          type: "success",
-          text: eventFormMode === "create" ? "✨ Event created and published!" : "✨ Event updated successfully!",
-        });
-        setEventModalOpen(false);
-        fetchAllData();
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to save event." });
-      }
+      setEventModalOpen(false);
+      fetchAllData();
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message || "Network error saving event." });
     } finally {
@@ -401,37 +611,27 @@ export default function AdminDashboardPage() {
   const handleToggleEventPublish = async (evt: AcademyEvent) => {
     const newStatus = !(evt.isPublished !== false);
     try {
-      const res = await fetch("/api/events", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: evt.id, isPublished: newStatus }),
+      await eventsApi.update(evt.id, { published: newStatus });
+      setEvents((prev) =>
+        prev.map((e) => (e.id === evt.id ? { ...e, isPublished: newStatus } : e))
+      );
+      setFeedback({
+        type: "success",
+        text: `Event "${evt.title}" is now ${newStatus ? "PUBLISHED" : "UNPUBLISHED"}.`,
       });
-      const data = await res.json();
-      if (data.success) {
-        setEvents((prev) =>
-          prev.map((e) => (e.id === evt.id ? { ...e, isPublished: newStatus } : e))
-        );
-        setFeedback({
-          type: "success",
-          text: `Event "${evt.title}" is now ${newStatus ? "PUBLISHED" : "UNPUBLISHED"}.`,
-        });
-      }
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error updating status: " + err.message });
+      setFeedback({ type: "error", text: "Error updating status: " + (err.message || "Failed") });
     }
   };
 
   const handleDeleteEvent = async (id: string, title: string) => {
     if (!confirm(`Are you sure you want to delete event "${title}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/events?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setEvents((prev) => prev.filter((item) => item.id !== id));
-        setFeedback({ type: "success", text: `Event "${title}" deleted.` });
-      }
+      await eventsApi.delete(id);
+      setEvents((prev) => prev.filter((item) => item.id !== id));
+      setFeedback({ type: "success", text: `Event "${title}" deleted.` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting event: " + err.message });
+      setFeedback({ type: "error", text: "Error deleting event: " + (err.message || "Failed") });
     }
   };
 
@@ -441,53 +641,36 @@ export default function AdminDashboardPage() {
   const handleGalleryUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!galTitle.trim()) {
-      setFeedback({ type: "error", text: "Please enter a photo title." });
+      setFeedback({ type: "error", text: "Please enter a photo title or caption." });
       return;
     }
     if (!galFile && !galImageUrl.trim()) {
-      setFeedback({ type: "error", text: "Please select an image file or enter an image URL." });
+      setFeedback({ type: "error", text: "Please select an image file to upload." });
       return;
     }
 
     setGalUploading(true);
     try {
-      let res;
+      const formData = new FormData();
+      formData.append("category", galCategory);
+      formData.append("caption", galTitle.trim() || galCaption.trim());
+      formData.append("featured", String(galIsFeatured));
+
       if (galFile) {
-        const formData = new FormData();
-        formData.append("title", galTitle);
-        formData.append("category", galCategory);
-        formData.append("caption", galCaption);
-        formData.append("isFeatured", String(galIsFeatured));
-        formData.append("file", galFile);
-        res = await fetch("/api/gallery", { method: "POST", body: formData });
-      } else {
-        res = await fetch("/api/gallery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: galTitle,
-            category: galCategory,
-            caption: galCaption,
-            isFeatured: galIsFeatured,
-            image: galImageUrl.trim(),
-          }),
-        });
+        formData.append("image", galFile);
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({ type: "success", text: "✨ Photo uploaded and published to /gallery!" });
-        setGalTitle("");
-        setGalCaption("");
-        setGalIsFeatured(false);
-        setGalFile(null);
-        setGalFilePreview(null);
-        setGalImageUrl("");
-        if (galFileInputRef.current) galFileInputRef.current.value = "";
-        fetchAllData();
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to upload photo." });
-      }
+      await galleryApi.create(formData);
+
+      setFeedback({ type: "success", text: "✨ Photo uploaded and published to /gallery!" });
+      setGalTitle("");
+      setGalCaption("");
+      setGalIsFeatured(false);
+      setGalFile(null);
+      setGalFilePreview(null);
+      setGalImageUrl("");
+      if (galFileInputRef.current) galFileInputRef.current.value = "";
+      fetchAllData();
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message || "Upload network error." });
     } finally {
@@ -498,14 +681,11 @@ export default function AdminDashboardPage() {
   const handleDeleteGalleryItem = async (id: string, itemTitle: string) => {
     if (!confirm(`Delete photo "${itemTitle}" from gallery?`)) return;
     try {
-      const res = await fetch(`/api/gallery?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setGalleryItems((prev) => prev.filter((i) => i.id !== id));
-        setFeedback({ type: "success", text: `"${itemTitle}" removed from gallery.` });
-      }
+      await galleryApi.delete(id);
+      setGalleryItems((prev) => prev.filter((i) => i.id !== id));
+      setFeedback({ type: "success", text: `"${itemTitle}" removed from gallery.` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting item: " + err.message });
+      setFeedback({ type: "error", text: "Error deleting item: " + (err.message || "Failed") });
     }
   };
 
@@ -522,47 +702,35 @@ export default function AdminDashboardPage() {
 
     setVidUploading(true);
     try {
-      let res;
       if (vidFile) {
         const formData = new FormData();
-        formData.append("title", vidTitle);
+        formData.append("title", vidTitle.trim());
         formData.append("category", vidCategory);
-        formData.append("description", vidDesc);
-        formData.append("duration", vidDuration || "Video");
-        formData.append("isFeatured", String(vidIsFeatured));
-        formData.append("thumbnail", vidThumb);
-        formData.append("file", vidFile);
-        res = await fetch("/api/academy-videos", { method: "POST", body: formData });
+        formData.append("duration", vidDuration.trim() || "Video");
+        formData.append("published", "true");
+        formData.append("videoFile", vidFile);
+        if (vidThumb) formData.append("thumbnailUrl", vidThumb.trim());
+        await academyVideosApi.create(formData);
       } else {
-        res = await fetch("/api/academy-videos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: vidTitle,
-            category: vidCategory,
-            videoUrl: vidUrl.trim(),
-            thumbnail: vidThumb.trim(),
-            description: vidDesc.trim(),
-            duration: vidDuration.trim() || "Video",
-            isFeatured: vidIsFeatured,
-          }),
+        await academyVideosApi.create({
+          title: vidTitle.trim(),
+          category: vidCategory,
+          videoUrl: vidUrl.trim(),
+          thumbnailUrl: vidThumb.trim() || undefined,
+          duration: vidDuration.trim() || "Video",
+          published: true,
         });
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({ type: "success", text: "✨ Video published to /academy successfully!" });
-        setVidTitle("");
-        setVidUrl("");
-        setVidThumb("");
-        setVidDuration("");
-        setVidDesc("");
-        setVidIsFeatured(false);
-        setVidFile(null);
-        fetchAllData();
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to publish video." });
-      }
+      setFeedback({ type: "success", text: "✨ Video published to /academy successfully!" });
+      setVidTitle("");
+      setVidUrl("");
+      setVidThumb("");
+      setVidDuration("");
+      setVidDesc("");
+      setVidIsFeatured(false);
+      setVidFile(null);
+      fetchAllData();
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message || "Video upload error." });
     } finally {
@@ -573,14 +741,11 @@ export default function AdminDashboardPage() {
   const handleDeleteVideo = async (id: string, vTitle: string) => {
     if (!confirm(`Delete video "${vTitle}" from academy?`)) return;
     try {
-      const res = await fetch(`/api/academy-videos?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setAcademyVideos((prev) => prev.filter((v) => v.id !== id));
-        setFeedback({ type: "success", text: `"${vTitle}" removed from academy.` });
-      }
+      await academyVideosApi.delete(id);
+      setAcademyVideos((prev) => prev.filter((v) => v.id !== id));
+      setFeedback({ type: "success", text: `"${vTitle}" removed from academy.` });
     } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting video: " + err.message });
+      setFeedback({ type: "error", text: "Error deleting video: " + (err.message || "Failed") });
     }
   };
 
@@ -1511,8 +1676,11 @@ export default function AdminDashboardPage() {
                               {selectedInternship.resumeFileName || "Candidate Resume"}
                             </p>
                             <p className="text-[11px] text-zinc-400">
-                              {(selectedInternship.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB • Verified Upload
+                              {selectedInternship.fileSizeBytes
+                                ? `${(selectedInternship.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB • `
+                                : ""}Verified Upload
                             </p>
+
                           </div>
                         </div>
 
@@ -1644,11 +1812,10 @@ export default function AdminDashboardPage() {
                           <tr key={evt.id} className="hover:bg-amber-50/40 transition-colors">
                             <td className="px-5 py-3.5">
                               <div className="relative w-20 h-14 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-200 flex-shrink-0">
-                                <Image
+                                <img
                                   src={evt.image || "/images/cosmetology_training_hero.jpg"}
                                   alt={evt.title}
-                                  fill
-                                  className="object-cover"
+                                  className="w-full h-full object-cover"
                                 />
                               </div>
                             </td>
@@ -1887,7 +2054,7 @@ export default function AdminDashboardPage() {
 
                         {evtFilePreview && (
                           <div className="relative w-32 h-20 rounded-xl overflow-hidden mt-2 border border-zinc-300">
-                            <Image src={evtFilePreview} alt="Preview" fill className="object-cover" />
+                            <img src={evtFilePreview} alt="Preview" className="w-full h-full object-cover" />
                           </div>
                         )}
                       </div>
@@ -2104,7 +2271,7 @@ export default function AdminDashboardPage() {
                       key={item.id}
                       className="relative group bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 aspect-square"
                     >
-                      <Image src={item.image} alt={item.title} fill className="object-cover" />
+                      <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 text-white text-[10px]">
                         <span className="font-bold line-clamp-2">{item.title}</span>
                         <button

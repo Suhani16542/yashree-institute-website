@@ -1,47 +1,42 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Upload,
   Trash2,
-  Sparkles,
-  Lock,
-  Unlock,
   CheckCircle,
   AlertCircle,
   Eye,
   ArrowLeft,
-  Image as ImageIcon,
   Plus,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
-import { GalleryItem } from "@/data/gallerySeed";
+import { useAdminAuth } from "@/lib/auth/useAdminAuth";
+import { galleryApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
+import { GalleryItemData } from "@/lib/api/types";
 
-const ADMIN_PASSCODE = "yashree2026";
-
-const CATEGORIES: GalleryItem["category"][] = [
+const CATEGORIES = [
   "Awards & Seminars",
   "Student Convocation",
   "Celebrity Makeup",
   "Practical Training",
   "Salon & Studio",
-];
+] as const;
 
 export default function AdminGalleryPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passcode, setPasscode] = useState("");
-  const [passcodeError, setPasscodeError] = useState("");
+  const { user, loading: authLoading, logout } = useAdminAuth();
 
-  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [items, setItems] = useState<GalleryItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form states
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<GalleryItem["category"]>("Awards & Seminars");
+  const [category, setCategory] = useState<string>("Awards & Seminars");
   const [caption, setCaption] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -50,48 +45,25 @@ export default function AdminGalleryPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check sessionStorage for previous login
-  useEffect(() => {
-    const authStatus = sessionStorage.getItem("yashree_admin_auth");
-    if (authStatus === "true") {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
   // Fetch current gallery items
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/gallery");
-      const data = await res.json();
-      if (data.success && Array.isArray(data.items)) {
-        setItems(data.items);
-      }
-    } catch (err) {
-      console.error("Error fetching gallery items:", err);
+      const res = await galleryApi.getPublic();
+      setItems(res.items || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load gallery items";
+      console.error("Error fetching gallery items:", msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       fetchItems();
     }
-  }, [isAuthenticated]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAuthenticated(true);
-    sessionStorage.setItem("yashree_admin_auth", "true");
-    setPasscodeError("");
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem("yashree_admin_auth");
-    setPasscode("");
-  };
+  }, [user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,11 +79,6 @@ export default function AdminGalleryPage() {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setFeedback({ type: "error", text: "Please provide a title for the photo." });
-      return;
-    }
-
     if (!selectedFile && !imageUrl.trim()) {
       setFeedback({
         type: "error",
@@ -124,152 +91,78 @@ export default function AdminGalleryPage() {
     setFeedback(null);
 
     try {
-      let res;
+      const formData = new FormData();
+      formData.append("category", category);
+      formData.append("caption", caption || title);
+      formData.append("featured", String(isFeatured));
+
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append("title", title);
-        formData.append("category", category);
-        formData.append("caption", caption);
-        formData.append("isFeatured", String(isFeatured));
-        formData.append("file", selectedFile);
-
-        res = await fetch("/api/gallery", {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        res = await fetch("/api/gallery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            category,
-            caption,
-            isFeatured,
-            image: imageUrl.trim(),
-          }),
-        });
+        formData.append("image", selectedFile);
+      } else if (imageUrl.trim()) {
+        formData.append("imageUrl", imageUrl.trim());
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({
-          type: "success",
-          text: "✨ Photo uploaded and added to the live gallery successfully!",
-        });
-        // Reset form
-        setTitle("");
-        setCaption("");
-        setIsFeatured(false);
-        setSelectedFile(null);
-        setFilePreview(null);
-        setImageUrl("");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        // Refresh list
-        fetchItems();
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to upload photo." });
-      }
-    } catch (err: any) {
+      await galleryApi.create(formData);
+
+      setFeedback({
+        type: "success",
+        text: "✨ Photo uploaded and added to the live gallery successfully!",
+      });
+      // Reset form
+      setTitle("");
+      setCaption("");
+      setIsFeatured(false);
+      setSelectedFile(null);
+      setFilePreview(null);
+      setImageUrl("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Refresh list
+      fetchItems();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Network error while uploading photo.";
       setFeedback({
         type: "error",
-        text: err.message || "Network error while uploading photo.",
+        text: msg,
       });
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDeleteItem = async (id: string, itemTitle: string) => {
-    if (!confirm(`Are you sure you want to remove "${itemTitle}" from the gallery?`)) {
+  const handleDeleteItem = async (id: string, itemCaption?: string | null) => {
+    const displayName = itemCaption || "this item";
+    if (!confirm(`Are you sure you want to remove "${displayName}" from the gallery?`)) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/gallery?id=${id}`, {
-        method: "DELETE",
+      await galleryApi.delete(id);
+      setFeedback({
+        type: "success",
+        text: `Item removed from gallery successfully.`,
       });
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({
-          type: "success",
-          text: `"${itemTitle}" removed from gallery successfully.`,
-        });
-        fetchItems();
-      } else {
-        setFeedback({ type: "error", text: data.message || "Failed to delete item." });
-      }
-    } catch (err: any) {
-      setFeedback({ type: "error", text: "Error deleting item: " + err.message });
+      fetchItems();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete item.";
+      setFeedback({ type: "error", text: "Error deleting item: " + msg });
     }
   };
 
-  // 1. Passcode Screen
-  if (!isAuthenticated) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-zinc-900 rounded-3xl p-8 border-2 border-amber-300/40 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-[#f2c301] text-zinc-950 flex items-center justify-center mx-auto shadow-lg">
-              <Lock className="w-7 h-7" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-widest text-[#f2c301] block">
-              Yashree Institute Admin
-            </span>
-            <h1 className="text-2xl font-serif font-bold text-white">
-              Gallery Management Desk
-            </h1>
-            <p className="text-xs text-zinc-400">
-              Enter admin passcode to upload, manage, or delete gallery photos.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1">
-                Passcode
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="Enter passcode (e.g. yashree2026)"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-[#f2c301]"
-              />
-            </div>
-
-            {passcodeError && (
-              <p className="text-xs text-rose-400 flex items-center gap-1.5 font-medium">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{passcodeError}</span>
-              </p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-3.5 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Unlock className="w-4 h-4" />
-              <span>Unlock Admin Panel</span>
-            </button>
-          </form>
-
-          <div className="pt-2 text-center">
-            <Link
-              href="/gallery"
-              className="text-xs text-zinc-400 hover:text-[#f2c301] inline-flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to Public Gallery</span>
-            </Link>
-          </div>
+        <div className="text-center space-y-3">
+          <RefreshCw className="w-8 h-8 text-[#f2c301] animate-spin mx-auto" />
+          <p className="text-xs text-zinc-400 font-mono">Verifying admin credentials...</p>
         </div>
       </div>
     );
   }
 
-  // 2. Authenticated Admin Dashboard
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-[#faf8f5] text-zinc-900">
       {/* Top Admin Header */}
@@ -277,9 +170,9 @@ export default function AdminGalleryPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/gallery"
+              href="/admin"
               className="p-2 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-              title="View Public Gallery"
+              title="Return to Main Admin Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
@@ -307,10 +200,11 @@ export default function AdminGalleryPage() {
             </Link>
 
             <button
-              onClick={handleLogout}
-              className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-rose-950 text-rose-300 border border-zinc-700 hover:border-rose-500 text-xs font-semibold transition-colors cursor-pointer"
+              onClick={() => logout()}
+              className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-rose-950 text-rose-300 border border-zinc-700 hover:border-rose-500 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              Logout
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
@@ -337,7 +231,7 @@ export default function AdminGalleryPage() {
             </div>
             <button
               onClick={() => setFeedback(null)}
-              className="text-xs font-bold underline opacity-70 hover:opacity-100"
+              className="text-xs font-bold underline opacity-70 hover:opacity-100 cursor-pointer"
             >
               Dismiss
             </button>
@@ -388,12 +282,10 @@ export default function AdminGalleryPage() {
                     {filePreview ? (
                       <div className="space-y-3">
                         <div className="relative aspect-[4/3] rounded-xl overflow-hidden shadow bg-black max-w-[240px] mx-auto">
-                          <Image
+                          <img
                             src={filePreview}
                             alt="Upload preview"
-                            fill
-                            className="object-cover"
-                            unoptimized
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <p className="text-xs font-semibold text-[#b8860b]">
@@ -438,20 +330,6 @@ export default function AdminGalleryPage() {
 
               {/* Right Column: Meta Information */}
               <div className="md:col-span-7 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1.5">
-                    Photo Title *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Masterclass Convocation 2026 or Bridal Makeup Shoot"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#faf8f5] border border-zinc-200 text-zinc-900 placeholder-zinc-400 text-sm focus:outline-none focus:border-[#b8860b]"
-                  />
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1.5">
@@ -459,7 +337,7 @@ export default function AdminGalleryPage() {
                     </label>
                     <select
                       value={category}
-                      onChange={(e) => setCategory(e.target.value as GalleryItem["category"])}
+                      onChange={(e) => setCategory(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl bg-[#faf8f5] border border-zinc-200 text-zinc-900 text-sm focus:outline-none focus:border-[#b8860b]"
                     >
                       {CATEGORIES.map((cat) => (
@@ -536,7 +414,7 @@ export default function AdminGalleryPage() {
 
             <button
               onClick={fetchItems}
-              className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#b8860b] transition-colors"
+              className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#b8860b] transition-colors cursor-pointer"
               title="Refresh List"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -544,8 +422,9 @@ export default function AdminGalleryPage() {
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-zinc-400 text-xs">
-              Loading gallery items...
+            <div className="text-center py-12 text-zinc-400 text-xs flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-[#f2c301]" />
+              <span>Loading gallery items from backend...</span>
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-12 text-zinc-500 text-xs">
@@ -553,55 +432,55 @@ export default function AdminGalleryPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-[#faf8f5] rounded-2xl p-4 border border-amber-200/80 flex flex-col justify-between space-y-3 group hover:border-[#b8860b] transition-all"
-                >
-                  <div className="space-y-2.5">
-                    <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-black shadow-xs">
-                      <Image
-                        src={item.image}
-                        alt={item.title}
-                        fill
-                        sizes="300px"
-                        className="object-cover"
-                        unoptimized={item.image.startsWith("/uploads/") || item.image.startsWith("http")}
-                      />
-                      <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full bg-zinc-950/80 text-[#f2c301] text-[9px] font-bold uppercase tracking-wider">
-                          {item.category}
-                        </span>
-                        {item.isFeatured && (
-                          <span className="px-2 py-0.5 rounded-full bg-[#f2c301] text-zinc-950 text-[9px] font-bold uppercase tracking-wider">
-                            Featured
+              {items.map((item) => {
+                const resolvedImg = resolveAssetUrl(item.image || item.imageUrl);
+                const itemId = item.id || item._id || "";
+                return (
+                  <div
+                    key={itemId}
+                    className="bg-[#faf8f5] rounded-2xl p-4 border border-amber-200/80 flex flex-col justify-between space-y-3 group hover:border-[#b8860b] transition-all"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-black shadow-xs">
+                        <img
+                          src={resolvedImg || "/images/gallery_placeholder.jpg"}
+                          alt={item.caption || "Gallery item"}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full bg-zinc-950/80 text-[#f2c301] text-[9px] font-bold uppercase tracking-wider">
+                            {item.category}
                           </span>
-                        )}
+                          {item.featured && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#f2c301] text-zinc-950 text-[9px] font-bold uppercase tracking-wider">
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-zinc-700 line-clamp-2 mt-0.5 font-medium">
+                          {item.caption || "Gallery Moment"}
+                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-900 font-serif line-clamp-1">
-                        {item.title}
-                      </h4>
-                      <p className="text-[11px] text-zinc-500 line-clamp-2 mt-0.5">
-                        {item.caption}
-                      </p>
+                    <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Active"}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteItem(itemId, item.caption)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
-                    <span className="text-zinc-400">{item.date || "Active"}</span>
-                    <button
-                      onClick={() => handleDeleteItem(item.id, item.title)}
-                      className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -609,3 +488,4 @@ export default function AdminGalleryPage() {
     </div>
   );
 }
+

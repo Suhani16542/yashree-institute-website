@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar,
@@ -15,6 +14,40 @@ import {
 } from "lucide-react";
 import AnimatedReveal from "@/components/AnimatedReveal";
 import { INITIAL_EVENTS, AcademyEvent } from "@/data/eventsSeed";
+import { eventsApi } from "@/lib/api";
+import { resolveAssetUrl } from "@/lib/api/config";
+import { EventItem } from "@/lib/api/types";
+
+function formatEventFromApi(e: EventItem, idx: number): AcademyEvent {
+  const d = e.eventDate ? new Date(e.eventDate) : new Date();
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const month = isNaN(d.getTime()) ? "MAR" : months[d.getMonth()];
+  const day = isNaN(d.getTime()) ? "15" : String(d.getDate()).padStart(2, "0");
+  const year = isNaN(d.getTime()) ? "2026" : String(d.getFullYear());
+
+  return {
+    id: e.id || e._id || `event-${idx}`,
+    title: e.title,
+    category: (e.category as AcademyEvent["category"]) || "Masterclass",
+    date: isNaN(d.getTime()) ? e.eventDate : `${month} ${day}, ${year}`,
+    day,
+    month,
+    year,
+    time: "10:00 AM - 5:00 PM IST",
+    venue: e.location || "Yashree Institute Campus, Indore",
+    instructor: "Deepika Patidar (Founder & Celebrity Artist)",
+    image: resolveAssetUrl(e.bannerImage || e.bannerImageUrl) || "/images/seminar_awards_grid.jpg",
+    description: e.description,
+    seatsStatus: "Fast Filling",
+    highlights: [
+      "Authorized Certificate",
+      "Live Model Hands-on Practice",
+      "Free Practice Cosmetics Kit",
+      "Personal Mentorship",
+    ],
+    isFeatured: e.featured,
+  };
+}
 
 export default function EventsSection() {
   const [events, setEvents] = useState<AcademyEvent[]>(INITIAL_EVENTS);
@@ -22,10 +55,9 @@ export default function EventsSection() {
   useEffect(() => {
     async function loadLiveEvents() {
       try {
-        const res = await fetch("/api/events");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setEvents(data.items);
+        const res = await eventsApi.getPublic();
+        if (res.events && res.events.length > 0) {
+          setEvents(res.events.map(formatEventFromApi));
         }
       } catch (err) {
         console.warn("Using default events seed:", err);
@@ -33,6 +65,7 @@ export default function EventsSection() {
     }
     loadLiveEvents();
   }, []);
+
 
   // Show top 3 highlight events as a concise teaser on Home Page
   const teaserEvents = events.slice(0, 3);
@@ -69,12 +102,10 @@ export default function EventsSection() {
                 <div>
                   {/* Image with Date Box */}
                   <div className="relative aspect-[16/10] bg-black overflow-hidden">
-                    <Image
+                    <img
                       src={evt.image}
                       alt={evt.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 400px"
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/30 to-transparent opacity-90" />
 
