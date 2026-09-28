@@ -31,9 +31,14 @@ async function request<T>(
 ): Promise<ApiResponse<T>> {
   const { params, headers, ...customConfig } = options;
 
-  let url = endpoint.startsWith("http")
+  // Normalize endpoint to prevent double '/api/v1' prefix if passed
+  const cleanEndpoint = endpoint.startsWith("http")
     ? endpoint
-    : `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    : endpoint.replace(/^\/?api\/v1/, "");
+
+  let url = cleanEndpoint.startsWith("http")
+    ? cleanEndpoint
+    : `${API_BASE_URL}${cleanEndpoint.startsWith("/") ? cleanEndpoint : `/${cleanEndpoint}`}`;
 
   if (params) {
     const query = new URLSearchParams();
