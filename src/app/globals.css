@@ -228,3 +228,22 @@ img, video {
 ::-webkit-scrollbar-thumb:hover {
   background: #d4af37;
 }
+
+/* Mobile & Responsive Viewport Safety */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (max-width: 640px) {
+  h1, h2, h3, p {
+    overflow-wrap: break-word;
+  }
+}

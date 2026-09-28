@@ -166,30 +166,30 @@ export default function AdminGalleryPage() {
   return (
     <div className="min-h-screen bg-[#faf8f5] text-zinc-900">
       {/* Top Admin Header */}
-      <header className="bg-zinc-950 text-white border-b border-zinc-800 sticky top-0 z-40 px-4 sm:px-8 py-3.5 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="bg-zinc-950 text-white border-b border-zinc-800 sticky top-0 z-40 px-3 sm:px-8 py-3 sm:py-3.5 shadow-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <Link
               href="/admin"
-              className="p-2 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="p-2 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex-shrink-0"
               title="Return to Main Admin Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div>
-              <h1 className="text-base font-serif font-bold text-white flex items-center gap-2">
-                <span>Gallery Admin Desk</span>
-                <span className="text-[10px] bg-[#f2c301] text-zinc-950 px-2 py-0.5 rounded-full font-bold uppercase">
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-serif font-bold text-white flex items-center gap-2 truncate">
+                <span className="truncate">Gallery Admin Desk</span>
+                <span className="text-[10px] bg-[#f2c301] text-zinc-950 px-2 py-0.5 rounded-full font-bold uppercase flex-shrink-0">
                   Live
                 </span>
               </h1>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-zinc-400 hidden sm:block truncate">
                 Upload &amp; Manage photos visible at /gallery
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <Link
               href="/gallery"
               target="_blank"
@@ -201,37 +201,37 @@ export default function AdminGalleryPage() {
 
             <button
               onClick={() => logout()}
-              className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-rose-950 text-rose-300 border border-zinc-700 hover:border-rose-500 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-rose-950 text-rose-300 border border-zinc-700 hover:border-rose-500 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
+              <span className="hidden xs:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8">
         {/* Feedback Alert */}
         {feedback && (
           <div
-            className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-medium animate-fadeIn ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-2 text-xs sm:text-sm font-medium animate-fadeIn ${
               feedback.type === "success"
                 ? "bg-emerald-50 border-emerald-300 text-emerald-800"
                 : "bg-rose-50 border-rose-300 text-rose-800"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {feedback.type === "success" ? (
-                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600 flex-shrink-0" />
               )}
-              <span>{feedback.text}</span>
+              <span className="truncate">{feedback.text}</span>
             </div>
             <button
               onClick={() => setFeedback(null)}
-              className="text-xs font-bold underline opacity-70 hover:opacity-100 cursor-pointer"
+              className="text-xs font-bold underline opacity-70 hover:opacity-100 cursor-pointer flex-shrink-0"
             >
               Dismiss
             </button>
@@ -239,18 +239,18 @@ export default function AdminGalleryPage() {
         )}
 
         {/* Upload Form Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-200/80 shadow-md">
-          <div className="flex items-center justify-between pb-4 mb-6 border-b border-amber-100">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 sm:p-8 border-2 border-amber-200/80 shadow-md">
+          <div className="flex items-center justify-between pb-4 mb-4 sm:mb-6 border-b border-amber-100">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
                 Add New Photo
               </span>
-              <h2 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
+              <h2 className="text-lg sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
                 Upload Image to Live Gallery
               </h2>
             </div>
 
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-[#b8860b] flex items-center justify-center">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-50 text-[#b8860b] flex items-center justify-center flex-shrink-0">
               <Plus className="w-5 h-5" />
             </div>
           </div>
@@ -401,13 +401,13 @@ export default function AdminGalleryPage() {
         </div>
 
         {/* Existing Gallery Photos Table / Grid */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-200/80 shadow-md space-y-6">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 sm:p-8 border-2 border-amber-200/80 shadow-md space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-amber-100">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest text-[#b8860b]">
                 Active Inventory ({items.length} Photos)
               </span>
-              <h2 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
+              <h2 className="text-lg sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
                 All Published Gallery Items
               </h2>
             </div>
@@ -431,7 +431,7 @@ export default function AdminGalleryPage() {
               No gallery items found. Use the form above to add photos.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
               {items.map((item) => {
                 const resolvedImg = resolveAssetUrl(item.image || item.imageUrl);
                 const itemId = item.id || item._id || "";

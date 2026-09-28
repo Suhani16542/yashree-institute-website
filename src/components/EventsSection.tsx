@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import AnimatedReveal from "@/components/AnimatedReveal";
-import { INITIAL_EVENTS, AcademyEvent } from "@/data/eventsSeed";
+import { AcademyEvent } from "@/data/eventsSeed";
 import { eventsApi } from "@/lib/api";
 import { resolveAssetUrl } from "@/lib/api/config";
 import { EventItem } from "@/lib/api/types";
@@ -27,40 +27,49 @@ function formatEventFromApi(e: EventItem, idx: number): AcademyEvent {
 
   return {
     id: e.id || e._id || `event-${idx}`,
-    title: e.title,
+    title: e.title || "Academy Masterclass",
     category: (e.category as AcademyEvent["category"]) || "Masterclass",
-    date: isNaN(d.getTime()) ? e.eventDate : `${month} ${day}, ${year}`,
+    date: isNaN(d.getTime()) ? (e.eventDate || "Upcoming") : `${month} ${day}, ${year}`,
     day,
     month,
     year,
-    time: "10:00 AM - 5:00 PM IST",
+    time: e.time || "10:00 AM - 5:00 PM IST",
     venue: e.location || "Yashree Institute Campus, Indore",
-    instructor: "Deepika Patidar (Founder & Celebrity Artist)",
-    image: resolveAssetUrl(e.bannerImage || e.bannerImageUrl) || "/images/seminar_awards_grid.jpg",
-    description: e.description,
-    seatsStatus: "Fast Filling",
-    highlights: [
-      "Authorized Certificate",
-      "Live Model Hands-on Practice",
-      "Free Practice Cosmetics Kit",
-      "Personal Mentorship",
-    ],
-    isFeatured: e.featured,
+    instructor: e.instructor || "Deepika Patidar (Founder & Celebrity Artist)",
+    image: resolveAssetUrl(e.bannerImage || e.bannerImageUrl, "/images/seminar_awards_grid.jpg"),
+    description: e.description || "Join live hands-on clinical and bridal workshops in Indore.",
+    seatsStatus: e.seatsStatus || "Registrations Open",
+    highlights: Array.isArray(e.highlights) && e.highlights.length > 0
+      ? e.highlights
+      : [
+          "Authorized Certificate",
+          "Live Model Hands-on Practice",
+          "Free Practice Cosmetics Kit",
+          "Personal Mentorship",
+        ],
+    isFeatured: Boolean(e.featured ?? e.isFeatured),
   };
 }
 
 export default function EventsSection() {
-  const [events, setEvents] = useState<AcademyEvent[]>(INITIAL_EVENTS);
+  const [events, setEvents] = useState<AcademyEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadLiveEvents() {
+      setLoading(true);
       try {
-        const res = await eventsApi.getPublic();
-        if (res.events && res.events.length > 0) {
+        const res = await eventsApi.getPublic({ limit: 6 });
+        if (Array.isArray(res.events) && res.events.length > 0) {
           setEvents(res.events.map(formatEventFromApi));
+        } else {
+          setEvents([]);
         }
       } catch (err) {
-        console.warn("Using default events seed:", err);
+        console.error("Failed to load events on home teaser:", err);
+        setEvents([]);
+      } finally {
+        setLoading(false);
       }
     }
     loadLiveEvents();
@@ -94,73 +103,89 @@ export default function EventsSection() {
           </div>
         </AnimatedReveal>
 
-        {/* 3 Compact Teaser Event Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 sm:mb-10">
-          {teaserEvents.map((evt, idx) => (
-            <AnimatedReveal key={evt.id} animation="fade-up" delay={idx * 100} className="h-full">
-              <div className="bg-zinc-900/90 rounded-3xl overflow-hidden border border-zinc-800 hover:border-[#f2c301]/60 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between h-full group hover:-translate-y-1">
-                <div>
-                  {/* Image with Date Box */}
-                  <div className="relative aspect-[16/10] bg-black overflow-hidden">
-                    <img
-                      src={evt.image}
-                      alt={evt.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/30 to-transparent opacity-90" />
-
-                    {/* Top Badges */}
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-950/80 text-[#f2c301] text-[10px] font-bold uppercase tracking-wider border border-amber-400/40">
-                        {evt.category}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
-                        <Flame className="w-3 h-3 text-amber-200 fill-amber-200" />
-                        <span>{evt.seatsStatus}</span>
-                      </span>
-                    </div>
-
-                    {/* Date Badge */}
-                    <div className="absolute bottom-3 left-3 bg-zinc-950/90 backdrop-blur-md border border-[#f2c301]/60 rounded-xl p-2 text-center min-w-[55px] shadow-lg">
-                      <span className="block text-[9px] font-black uppercase tracking-wider text-[#f2c301]">
-                        {evt.month}
-                      </span>
-                      <span className="block text-lg font-serif font-black text-white leading-none">
-                        {evt.day}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Body Content */}
-                  <div className="p-5 space-y-3">
-                    <h3 className="text-base font-serif font-bold text-white group-hover:text-[#f2c301] transition-colors line-clamp-2 leading-snug">
-                      {evt.title}
-                    </h3>
-
-                    <div className="space-y-1.5 text-xs text-zinc-400">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-[#f2c301] flex-shrink-0" />
-                        <span className="line-clamp-1">{evt.venue.split(",")[0]}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5 text-[#f2c301] flex-shrink-0" />
-                        <span>{evt.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Footer */}
-                <div className="p-5 pt-0">
-                  <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs font-bold text-[#f2c301] group-hover:underline">
-                    <span>View Event Schedule</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
+        {/* Compact Teaser Event Cards */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 sm:mb-10">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-zinc-900/80 rounded-3xl p-4 border border-zinc-800 animate-pulse h-64 flex flex-col justify-between">
+                <div className="aspect-[16/10] bg-zinc-800 rounded-2xl w-full" />
+                <div className="space-y-2 mt-3">
+                  <div className="h-4 bg-zinc-800 rounded w-3/4" />
+                  <div className="h-3 bg-zinc-800 rounded w-1/2" />
                 </div>
               </div>
-            </AnimatedReveal>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : teaserEvents.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 sm:mb-10">
+            {teaserEvents.map((evt, idx) => (
+              <AnimatedReveal key={evt.id} animation="fade-up" delay={idx * 100} className="h-full">
+                <Link href="/events" className="block h-full">
+                  <div className="bg-zinc-900/90 rounded-3xl overflow-hidden border border-zinc-800 hover:border-[#f2c301]/60 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between h-full group hover:-translate-y-1">
+                    <div>
+                      {/* Image with Date Box */}
+                      <div className="relative aspect-[16/10] bg-black overflow-hidden">
+                        <img
+                          src={evt.image}
+                          alt={evt.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/30 to-transparent opacity-90" />
+
+                        {/* Top Badges */}
+                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                          <span className="px-2.5 py-0.5 rounded-full bg-zinc-950/80 text-[#f2c301] text-[10px] font-bold uppercase tracking-wider border border-amber-400/40">
+                            {evt.category}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
+                            <Flame className="w-3 h-3 text-amber-200 fill-amber-200" />
+                            <span>{evt.seatsStatus}</span>
+                          </span>
+                        </div>
+
+                        {/* Date Badge */}
+                        <div className="absolute bottom-3 left-3 bg-zinc-950/90 backdrop-blur-md border border-[#f2c301]/60 rounded-xl p-2 text-center min-w-[55px] shadow-lg">
+                          <span className="block text-[9px] font-black uppercase tracking-wider text-[#f2c301]">
+                            {evt.month}
+                          </span>
+                          <span className="block text-lg font-serif font-black text-white leading-none">
+                            {evt.day}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Body Content */}
+                      <div className="p-5 space-y-3">
+                        <h3 className="text-base font-serif font-bold text-white group-hover:text-[#f2c301] transition-colors line-clamp-2 leading-snug">
+                          {evt.title}
+                        </h3>
+
+                        <div className="space-y-1.5 text-xs text-zinc-400">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-[#f2c301] flex-shrink-0" />
+                            <span className="line-clamp-1">{evt.venue.split(",")[0]}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5 text-[#f2c301] flex-shrink-0" />
+                            <span>{evt.time}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Footer */}
+                    <div className="p-5 pt-0">
+                      <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs font-bold text-[#f2c301] group-hover:underline">
+                        <span>View Event Schedule</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </AnimatedReveal>
+            ))}
+          </div>
+        ) : null}
 
         {/* Center CTA linking to dedicated internal /events page */}
         <div className="flex flex-wrap items-center justify-center gap-4 text-center">

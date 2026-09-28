@@ -120,11 +120,18 @@ export interface EventItem {
   category: string;
   eventDate: string;
   location: string;
+  time?: string;
+  venue?: string;
+  instructor?: string;
+  seatsStatus?: string;
+  highlights?: string[] | string;
   bannerImage?: string | null;
   bannerImageUrl?: string | null;
   bannerImagePublicId?: string | null;
   published: boolean;
   featured: boolean;
+  isFeatured?: boolean;
+  isPublished?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -163,12 +170,18 @@ export interface AcademyVideoItem {
   _id?: string;
   title: string;
   videoUrl?: string | null;
+  videoSource?: "youtube" | "upload" | string;
+  videoType?: string | null;
   videoPublicId?: string | null;
+  thumbnail?: string | null;
   thumbnailUrl?: string | null;
   thumbnailPublicId?: string | null;
   category: string;
+  description?: string | null;
   duration?: string | null;
   published: boolean;
+  featured?: boolean;
+  isFeatured?: boolean;
   createdAt: string;
   updatedAt?: string;
 }

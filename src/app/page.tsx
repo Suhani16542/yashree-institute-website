@@ -1,7 +1,6 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import TrustStats from "@/components/TrustStats";
-import EventsSection from "@/components/EventsSection";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import CoursesSection from "@/components/CoursesSection";
 import PracticalExperience from "@/components/PracticalExperience";
@@ -22,10 +21,7 @@ export default function Home() {
         {/* 1. Intro & Trust Positioning */}
         <TrustStats />
 
-        {/* 2. Upcoming Academy Events, Seminars & Masterclasses */}
-        <EventsSection />
-
-        {/* 3. Why Choose Yashree Academy */}
+        {/* 2. Why Choose Yashree Academy */}
         <WhyChooseUs />
 
         {/* 3. Flagship Masterclass & Courses Explorer */}

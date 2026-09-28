@@ -82,8 +82,13 @@ async function request<T>(
     }
   }
 
+  const controller = new AbortController();
+  const timeoutMs = (customConfig as any)?.timeout || 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const config: RequestInit = {
     ...customConfig,
+    signal: customConfig.signal || controller.signal,
     headers: {
       ...defaultHeaders,
       ...headers,
@@ -93,6 +98,7 @@ async function request<T>(
 
   try {
     const response = await fetch(url, config);
+    clearTimeout(timeoutId);
 
     let data: any;
     const contentType = response.headers.get("content-type");
@@ -119,8 +125,17 @@ async function request<T>(
 
     return data as ApiResponse<T>;
   } catch (error: any) {
+    clearTimeout(timeoutId);
+
     if (error instanceof ApiError) {
       throw error;
+    }
+
+    if (error?.name === "AbortError") {
+      throw new ApiError(
+        408,
+        "Request timed out. Please check your internet connection or try again."
+      );
     }
 
     // Network error or unexpected failure

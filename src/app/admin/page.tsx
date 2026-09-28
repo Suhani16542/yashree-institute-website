@@ -297,6 +297,55 @@ function mapAcademyVideo(v: any): AcademyVideo {
   };
 }
 
+async function compressImageIfLarge(file: File, maxDimension = 1600, quality = 0.85): Promise<File> {
+  if (typeof window === "undefined" || !file.type.startsWith("image/") || file.size < 1024 * 1024) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new (window as any).Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < file.size) {
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" }));
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            quality
+          );
+        } else {
+          resolve(file);
+        }
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
@@ -366,13 +415,52 @@ export default function AdminDashboardPage() {
   // Video Upload form states
   const [vidTitle, setVidTitle] = useState("");
   const [vidCategory, setVidCategory] = useState<AcademyVideo["category"]>("Masterclasses & Demos");
+  const [vidSourceType, setVidSourceType] = useState<"youtube" | "file">("youtube");
   const [vidUrl, setVidUrl] = useState("");
   const [vidThumb, setVidThumb] = useState("");
   const [vidDuration, setVidDuration] = useState("");
   const [vidDesc, setVidDesc] = useState("");
   const [vidIsFeatured, setVidIsFeatured] = useState(false);
   const [vidFile, setVidFile] = useState<File | null>(null);
+  const [vidFilePreview, setVidFilePreview] = useState<string | null>(null);
   const [vidUploading, setVidUploading] = useState(false);
+  const vidFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdminVidFileChange = (file: File | null) => {
+    if (!file) {
+      setVidFile(null);
+      setVidFilePreview(null);
+      return;
+    }
+
+    const SUPPORTED_VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "mkv", "ogg", "m4v"];
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
+    const isVideo = file.type.startsWith("video/") || SUPPORTED_VIDEO_EXTENSIONS.includes(fileExt);
+    if (!isVideo || (fileExt && !SUPPORTED_VIDEO_EXTENSIONS.includes(fileExt))) {
+      setFeedback({
+        type: "error",
+        text: `Invalid file format (.${fileExt || "unknown"}). Supported formats: MP4, WebM, MOV, MKV, OGG, M4V.`,
+      });
+      return;
+    }
+
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > 100) {
+      setFeedback({
+        type: "error",
+        text: `Video file is too large (${sizeMB.toFixed(1)}MB). Max limit is 100MB.`,
+      });
+      return;
+    }
+
+    setFeedback(null);
+    setVidFile(file);
+    try {
+      setVidFilePreview(URL.createObjectURL(file));
+    } catch {
+      setVidFilePreview(null);
+    }
+  };
 
   // Auth Guard with real backend session verification
   useEffect(() => {
@@ -565,6 +653,8 @@ export default function AdminDashboardPage() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (evtUploading) return; // Prevent duplicate submissions
+
     if (!evtTitle.trim()) {
       setFeedback({ type: "error", text: "Please enter an event title." });
       return;
@@ -586,7 +676,12 @@ export default function AdminDashboardPage() {
       formData.append("featured", String(evtIsFeatured));
 
       if (evtFile) {
-        formData.append("bannerImage", evtFile);
+        // Fast client compression for large photos to optimize network transfer
+        let fileToUpload = evtFile;
+        if (evtFile.size > 1024 * 1024) {
+          fileToUpload = await compressImageIfLarge(evtFile);
+        }
+        formData.append("bannerImage", fileToUpload);
       }
 
       if (eventFormMode === "create") {
@@ -600,7 +695,12 @@ export default function AdminDashboardPage() {
         text: eventFormMode === "create" ? "✨ Event created and published!" : "✨ Event updated successfully!",
       });
       setEventModalOpen(false);
-      fetchAllData();
+
+      // Refresh ONLY the events list instead of reloading all 5 collections
+      const evtRes = await eventsApi.getAllAdmin({ limit: 100 }).catch(() => ({ events: [] }));
+      if (Array.isArray(evtRes?.events)) {
+        setEvents(evtRes.events.map(mapEventItem));
+      }
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message || "Network error saving event." });
     } finally {
@@ -691,25 +791,36 @@ export default function AdminDashboardPage() {
 
   const handleVideoUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (vidUploading) return; // Prevent duplicate submissions
+
     if (!vidTitle.trim()) {
       setFeedback({ type: "error", text: "Please enter a video title." });
       return;
     }
-    if (!vidUrl.trim() && !vidFile) {
-      setFeedback({ type: "error", text: "Please enter a YouTube link or select a video file." });
-      return;
+
+    if (vidSourceType === "youtube") {
+      if (!vidUrl.trim()) {
+        setFeedback({ type: "error", text: "Please enter a YouTube video URL." });
+        return;
+      }
+    } else {
+      if (!vidFile) {
+        setFeedback({ type: "error", text: "Please select an MP4 video file from your computer." });
+        return;
+      }
     }
 
     setVidUploading(true);
     try {
-      if (vidFile) {
+      if (vidSourceType === "file" && vidFile) {
         const formData = new FormData();
         formData.append("title", vidTitle.trim());
         formData.append("category", vidCategory);
         formData.append("duration", vidDuration.trim() || "Video");
         formData.append("published", "true");
         formData.append("videoFile", vidFile);
-        if (vidThumb) formData.append("thumbnailUrl", vidThumb.trim());
+        formData.append("video", vidFile);
+        if (vidThumb.trim()) formData.append("thumbnailUrl", vidThumb.trim());
         await academyVideosApi.create(formData);
       } else {
         await academyVideosApi.create({
@@ -730,7 +841,13 @@ export default function AdminDashboardPage() {
       setVidDesc("");
       setVidIsFeatured(false);
       setVidFile(null);
-      fetchAllData();
+      setVidFilePreview(null);
+      if (vidFileInputRef.current) vidFileInputRef.current.value = "";
+      
+      const vidRes = await academyVideosApi.getPublic({ limit: 100 }).catch(() => ({ videos: [] }));
+      if (Array.isArray(vidRes?.videos)) {
+        setAcademyVideos(vidRes.videos.map(mapAcademyVideo));
+      }
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message || "Video upload error." });
     } finally {
@@ -796,18 +913,29 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[#faf8f5] text-zinc-900 flex flex-col md:flex-row selection:bg-[#f2c301]/30">
       {/* ========================================================
+          MOBILE SIDEBAR BACKDROP OVERLAY
+      ======================================================== */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-200"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ========================================================
           LEFT SIDEBAR NAVIGATION
       ======================================================== */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-50 h-screen w-72 bg-zinc-950 text-white border-r border-zinc-800 flex flex-col justify-between transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 left-0 z-50 h-screen w-[280px] sm:w-72 max-w-[85vw] bg-zinc-950 text-white border-r border-zinc-800 flex flex-col justify-between transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
         }`}
       >
         {/* Top Brand Area */}
         <div>
-          <div className="p-6 border-b border-zinc-800/80 flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-zinc-800/80 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <div className="relative w-36 h-9">
+              <div className="relative w-32 sm:w-36 h-8 sm:h-9">
                 <Image
                   src="/images/logo.png"
                   alt="Yashree Institute Logo"
@@ -827,36 +955,36 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Admin Profile Tag */}
-          <div className="px-6 py-4 border-b border-zinc-900 bg-zinc-900/40 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#f2c301] text-zinc-950 flex items-center justify-center font-bold text-sm">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-900 bg-zinc-900/40 flex items-center gap-3">
+            <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-[#f2c301] text-zinc-950 flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0">
               YI
             </div>
-            <div>
-              <span className="text-xs font-bold text-white block">
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-white block truncate">
                 Deepika Patidar Admin
               </span>
               <span className="text-[10.5px] text-[#f2c301] font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
                 Live Control Desk
               </span>
             </div>
           </div>
 
           {/* Sidebar Menu Links */}
-          <nav className="p-4 space-y-1.5">
+          <nav className="p-3 sm:p-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-230px)]">
             <button
               onClick={() => {
                 setActiveTab("overview");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "overview"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <LayoutDashboard className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
                 <span>Dashboard Overview</span>
               </div>
               <ChevronRight
@@ -871,14 +999,14 @@ export default function AdminDashboardPage() {
                 setActiveTab("inquiries");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "inquiries"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <Users className="w-4 h-4 flex-shrink-0" />
                 <span>Student Leads CRM</span>
               </div>
               {inquiries.filter((i) => i.status === "New").length > 0 ? (
@@ -896,14 +1024,14 @@ export default function AdminDashboardPage() {
                 setActiveTab("internships");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "internships"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <GraduationCap className="w-4 h-4 flex-shrink-0" />
                 <span>Internships &amp; CVs</span>
               </div>
               {internships.filter((i) => i.status === "New" || i.status === "Pending Review").length > 0 ? (
@@ -921,14 +1049,14 @@ export default function AdminDashboardPage() {
                 setActiveTab("events");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "events"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <Calendar className="w-4 h-4 flex-shrink-0" />
                 <span>Events &amp; Masterclasses</span>
               </div>
               <span className="text-xs opacity-60 font-mono">{events.length}</span>
@@ -939,14 +1067,14 @@ export default function AdminDashboardPage() {
                 setActiveTab("gallery");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "gallery"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <ImageIcon className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <ImageIcon className="w-4 h-4 flex-shrink-0" />
                 <span>Gallery Photo Desk</span>
               </div>
               <span className="text-xs opacity-60 font-mono">{galleryItems.length}</span>
@@ -957,14 +1085,14 @@ export default function AdminDashboardPage() {
                 setActiveTab("videos");
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === "videos"
                   ? "bg-[#f2c301] text-zinc-950 shadow-md font-extrabold"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <VideoIcon className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <VideoIcon className="w-4 h-4 flex-shrink-0" />
                 <span>Academy Video Hub</span>
               </div>
               <span className="text-xs opacity-60 font-mono">{academyVideos.length}</span>
@@ -973,25 +1101,25 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-zinc-900 space-y-2">
+        <div className="p-3 sm:p-4 border-t border-zinc-900 space-y-2">
           <Link
             href="/"
             target="_blank"
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+            className="w-full flex items-center justify-between px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <ExternalLink className="w-3.5 h-3.5 text-[#f2c301]" />
-              <span>View Live Website</span>
+              <ExternalLink className="w-3.5 h-3.5 text-[#f2c301] flex-shrink-0" />
+              <span className="truncate">View Live Website</span>
             </div>
             <span className="text-[10px] text-zinc-500">&rarr;</span>
           </Link>
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
               <span>Sign Out Admin</span>
             </div>
           </button>
@@ -1001,19 +1129,20 @@ export default function AdminDashboardPage() {
       {/* ========================================================
           MAIN ADMIN CONTENT AREA
       ======================================================== */}
-      <main className="flex-1 min-w-0 flex flex-col min-h-screen">
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen max-w-full overflow-x-hidden">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-40 bg-white border-b border-zinc-200 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-white border-b border-zinc-200 px-3.5 sm:px-8 py-3 sm:py-3.5 flex items-center justify-between shadow-xs gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl text-zinc-700 hover:bg-zinc-100 focus:outline-none"
+              className="md:hidden p-2 rounded-xl text-zinc-700 hover:bg-zinc-100 focus:outline-none flex-shrink-0"
+              aria-label="Open sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <div>
-              <h1 className="text-base sm:text-lg font-serif font-bold text-zinc-950">
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-lg font-serif font-bold text-zinc-950 truncate">
                 {activeTab === "overview" && "Executive Dashboard Overview"}
                 {activeTab === "inquiries" && "Student Admission Leads CRM"}
                 {activeTab === "internships" && "Internship Candidate Applications & Resumes"}
@@ -1021,17 +1150,17 @@ export default function AdminDashboardPage() {
                 {activeTab === "gallery" && "Official Gallery Media Manager"}
                 {activeTab === "videos" && "Academy Video & Reels Hub"}
               </h1>
-              <p className="text-[11px] text-zinc-500 hidden sm:block">
+              <p className="text-[11px] text-zinc-500 hidden sm:block truncate">
                 Yashree Institute of Cosmetology &amp; Aesthetic Academy • Deepika Patidar Control Console
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button
               onClick={fetchAllData}
               disabled={loading}
-              className="p-2 rounded-xl bg-zinc-100 hover:bg-amber-100 text-zinc-700 hover:text-amber-900 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-zinc-100 hover:bg-amber-100 text-zinc-700 hover:text-amber-900 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
               title="Refresh Data"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#b8860b]" : ""}`} />
@@ -1043,38 +1172,38 @@ export default function AdminDashboardPage() {
         {/* Global Feedback Banner */}
         {feedback && (
           <div
-            className={`mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs sm:text-sm font-semibold flex items-center justify-between ${
+            className={`mx-3 sm:mx-8 mt-3 sm:mt-4 p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm font-semibold flex items-center justify-between gap-2 ${
               feedback.type === "success"
                 ? "bg-emerald-50 border-emerald-300 text-emerald-900"
                 : "bg-rose-50 border-rose-300 text-rose-900"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {feedback.type === "success" ? (
                 <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
               )}
-              <span>{feedback.text}</span>
+              <span className="truncate">{feedback.text}</span>
             </div>
             <button
               onClick={() => setFeedback(null)}
-              className="p-1 text-zinc-400 hover:text-zinc-700"
+              className="p-1 text-zinc-400 hover:text-zinc-700 flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        <div className="p-4 sm:p-8 flex-1 space-y-8">
+        <div className="p-3.5 sm:p-6 lg:p-8 flex-1 space-y-6 sm:space-y-8 max-w-full">
           {/* ========================================================
               TAB 1: EXECUTIVE OVERVIEW
           ======================================================== */}
           {activeTab === "overview" && (
-            <div className="space-y-8 animate-in fade-in duration-200">
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
               {/* Top Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="bg-white p-5 rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                       Student Leads
@@ -1094,7 +1223,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                       Internship CVs
@@ -1103,7 +1232,7 @@ export default function AdminDashboardPage() {
                       <GraduationCap className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-3xl font-serif font-black text-zinc-950">
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-zinc-950">
                     {internships.length}
                   </div>
                   <div className="text-[11px] text-zinc-500 flex items-center gap-1">
@@ -1114,7 +1243,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                       Live Events
@@ -1123,7 +1252,7 @@ export default function AdminDashboardPage() {
                       <Calendar className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-3xl font-serif font-black text-zinc-950">
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-zinc-950">
                     {events.length}
                   </div>
                   <div className="text-[11px] text-zinc-500 flex items-center gap-1">
@@ -1134,7 +1263,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                       Gallery Photos
@@ -1143,7 +1272,7 @@ export default function AdminDashboardPage() {
                       <ImageIcon className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-3xl font-serif font-black text-zinc-950">
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-zinc-950">
                     {galleryItems.length}
                   </div>
                   <div className="text-[11px] text-zinc-500">
@@ -1151,7 +1280,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                       Video Hub
@@ -1160,7 +1289,7 @@ export default function AdminDashboardPage() {
                       <Film className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-3xl font-serif font-black text-zinc-950">
+                  <div className="text-2xl sm:text-3xl font-serif font-black text-zinc-950">
                     {academyVideos.length}
                   </div>
                   <div className="text-[11px] text-zinc-500">
@@ -1170,13 +1299,13 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Quick Actions & Recent Tables */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                 {/* Recent Inquiries */}
-                <div className="bg-white p-6 rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
+                <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-[#b8860b]" />
-                      <h3 className="text-base font-serif font-bold text-zinc-950">
+                      <h3 className="text-sm sm:text-base font-serif font-bold text-zinc-950">
                         Recent Admission Inquiries
                       </h3>
                     </div>
@@ -1192,16 +1321,16 @@ export default function AdminDashboardPage() {
                     {inquiries.slice(0, 5).map((lead) => (
                       <div
                         key={lead.id}
-                        className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-amber-50/50 border border-zinc-100 transition-colors flex items-center justify-between"
+                        className="p-3 sm:p-3.5 rounded-2xl bg-zinc-50 hover:bg-amber-50/50 border border-zinc-100 transition-colors flex items-center justify-between gap-2"
                       >
-                        <div>
-                          <p className="text-xs font-bold text-zinc-900">{lead.name}</p>
-                          <p className="text-[11px] text-zinc-500">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-zinc-900 truncate">{lead.name}</p>
+                          <p className="text-[11px] text-zinc-500 truncate">
                             {lead.course} • {lead.phone}
                           </p>
                         </div>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                             lead.status === "New"
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-zinc-200 text-zinc-700"
@@ -1215,11 +1344,11 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* Recent Internship Applications */}
-                <div className="bg-white p-6 rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
+                <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-purple-600" />
-                      <h3 className="text-base font-serif font-bold text-zinc-950">
+                      <h3 className="text-sm sm:text-base font-serif font-bold text-zinc-950">
                         Recent Internship Applications
                       </h3>
                     </div>
@@ -1240,23 +1369,23 @@ export default function AdminDashboardPage() {
                       internships.slice(0, 5).map((app) => (
                         <div
                           key={app.id}
-                          className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-purple-50/50 border border-zinc-100 transition-colors flex items-center justify-between"
+                          className="p-3 sm:p-3.5 rounded-2xl bg-zinc-50 hover:bg-purple-50/50 border border-zinc-100 transition-colors flex items-center justify-between gap-2"
                         >
-                          <div>
-                            <p className="text-xs font-bold text-zinc-900">{app.fullName}</p>
-                            <p className="text-[11px] text-zinc-500">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-zinc-900 truncate">{app.fullName}</p>
+                            <p className="text-[11px] text-zinc-500 truncate">
                               {app.areaOfInterest} • {app.city || "Indore"}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
                             {app.resumeFileUrl && (
                               <a
                                 href={app.resumeFileUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1 rounded-lg bg-amber-100 text-[#b8860b] hover:bg-amber-200 text-[10px] font-bold flex items-center gap-1"
+                                className="p-1 sm:px-2 sm:py-1 rounded-lg bg-amber-100 text-[#b8860b] hover:bg-amber-200 text-[10px] font-bold flex items-center gap-1"
                               >
-                                <FileText className="w-3 h-3" /> CV
+                                <FileText className="w-3 h-3" /> <span className="hidden xs:inline">CV</span>
                               </a>
                             )}
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800">
@@ -1278,7 +1407,7 @@ export default function AdminDashboardPage() {
           {activeTab === "inquiries" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               {/* Search and Filters */}
-              <div className="bg-white p-4 sm:p-6 rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
                 <div className="relative w-full sm:w-80">
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -1291,12 +1420,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Filter className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-xs font-bold text-zinc-600">Status:</span>
+                  <Filter className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                  <span className="text-xs font-bold text-zinc-600 flex-shrink-0">Status:</span>
                   <select
                     value={leadStatusFilter}
                     onChange={(e) => setLeadStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
+                    className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
                   >
                     <option value="All">All Statuses ({inquiries.length})</option>
                     <option value="New">New</option>
@@ -1308,9 +1437,9 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Inquiries Table */}
-              <div className="bg-white rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden max-w-full">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[640px]">
                     <thead className="bg-zinc-50 text-zinc-500 font-bold border-b border-zinc-200 uppercase tracking-wider">
                       <tr>
                         <th className="px-5 py-3.5">Candidate</th>
@@ -1405,7 +1534,7 @@ export default function AdminDashboardPage() {
           {activeTab === "internships" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               {/* Header Filter Bar */}
-              <div className="bg-white p-4 sm:p-6 rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
                 <div className="relative w-full sm:w-80">
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -1418,12 +1547,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Filter className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-xs font-bold text-zinc-600">Status:</span>
+                  <Filter className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                  <span className="text-xs font-bold text-zinc-600 flex-shrink-0">Status:</span>
                   <select
                     value={internshipStatusFilter}
                     onChange={(e) => setInternshipStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
+                    className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
                   >
                     <option value="All">All Statuses ({internships.length})</option>
                     {INTERNSHIP_STATUSES.map((st) => (
@@ -1436,9 +1565,9 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Internship Applications Table */}
-              <div className="bg-white rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden max-w-full">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[720px]">
                     <thead className="bg-zinc-50 text-zinc-500 font-bold border-b border-zinc-200 uppercase tracking-wider">
                       <tr>
                         <th className="px-5 py-3.5">Applicant</th>
@@ -1572,21 +1701,21 @@ export default function AdminDashboardPage() {
 
               {/* Candidate Details Modal */}
               {selectedInternship && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-                  <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-zinc-200 relative max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+                  <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 sm:p-8 shadow-2xl border border-zinc-200 relative max-h-[90vh] overflow-y-auto">
                     <button
                       onClick={() => setSelectedInternship(null)}
-                      className="absolute top-5 right-5 p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
+                      className="absolute top-4 right-4 sm:top-5 sm:right-5 p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer"
                     >
                       <X className="w-5 h-5" />
                     </button>
 
-                    <div className="space-y-6">
-                      <div className="border-b border-zinc-100 pb-4">
+                    <div className="space-y-5 sm:space-y-6">
+                      <div className="border-b border-zinc-100 pb-4 pr-8">
                         <span className="text-[11px] font-bold text-[#b8860b] uppercase tracking-wider">
                           Internship Candidate Profile
                         </span>
-                        <h3 className="text-2xl font-serif font-bold text-zinc-950 mt-1">
+                        <h3 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-1">
                           {selectedInternship.fullName}
                         </h3>
                         <p className="text-xs text-zinc-500">
@@ -1595,8 +1724,8 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* Applicant Details Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                             Phone / WhatsApp
                           </span>
@@ -1605,16 +1734,16 @@ export default function AdminDashboardPage() {
                           </p>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                             Email Address
                           </span>
-                          <p className="text-sm font-bold text-zinc-900">
+                          <p className="text-sm font-bold text-zinc-900 truncate">
                             {selectedInternship.email}
                           </p>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                             Current City
                           </span>
@@ -1623,7 +1752,7 @@ export default function AdminDashboardPage() {
                           </p>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                             Educational Background
                           </span>
@@ -1634,7 +1763,7 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* Disciplines & Roles */}
-                      <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-2">
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-2">
                         <div>
                           <span className="text-[10px] font-bold text-[#b8860b] uppercase tracking-wider">
                             Primary Area of Interest
@@ -1659,20 +1788,20 @@ export default function AdminDashboardPage() {
                           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-1">
                             Message / About Applicant:
                           </span>
-                          <p className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 leading-relaxed">
+                          <p className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 leading-relaxed">
                             {selectedInternship.message}
                           </p>
                         </div>
                       )}
 
                       {/* Resume Download Action */}
-                      <div className="p-4 rounded-2xl bg-zinc-950 text-white flex items-center justify-between">
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#f2c301] text-zinc-950 flex items-center justify-center font-bold">
+                          <div className="w-10 h-10 rounded-xl bg-[#f2c301] text-zinc-950 flex items-center justify-center font-bold flex-shrink-0">
                             <FileText className="w-5 h-5" />
                           </div>
-                          <div>
-                            <p className="text-xs font-bold text-white">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate">
                               {selectedInternship.resumeFileName || "Candidate Resume"}
                             </p>
                             <p className="text-[11px] text-zinc-400">
@@ -1680,7 +1809,6 @@ export default function AdminDashboardPage() {
                                 ? `${(selectedInternship.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB • `
                                 : ""}Verified Upload
                             </p>
-
                           </div>
                         </div>
 
@@ -1689,7 +1817,7 @@ export default function AdminDashboardPage() {
                             href={selectedInternship.resumeFileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold transition-colors flex items-center gap-1.5"
+                            className="w-full sm:w-auto text-center px-4 py-2 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>Download / View</span>
@@ -1698,13 +1826,13 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* Status Selector */}
-                      <div className="pt-2 flex items-center justify-between border-t border-zinc-100">
+                      <div className="pt-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-zinc-100">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-zinc-700">Update Status:</span>
+                          <span className="text-xs font-bold text-zinc-700 flex-shrink-0">Update Status:</span>
                           <select
                             value={selectedInternship.status}
                             onChange={(e) => handleUpdateInternshipStatus(selectedInternship.id, e.target.value)}
-                            className="px-3 py-1.5 rounded-xl border border-zinc-300 text-xs font-bold bg-white"
+                            className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl border border-zinc-300 text-xs font-bold bg-white"
                           >
                             {INTERNSHIP_STATUSES.map((st) => (
                               <option key={st} value={st}>
@@ -1719,7 +1847,7 @@ export default function AdminDashboardPage() {
                             href={`https://wa.me/${selectedInternship.phone.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5"
+                            className="w-full sm:w-auto text-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
                             <span>Chat on WhatsApp</span>
@@ -1739,11 +1867,11 @@ export default function AdminDashboardPage() {
           {activeTab === "events" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               {/* Action Bar */}
-              <div className="bg-white p-4 sm:p-6 rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <div className="bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <button
                     onClick={handleOpenCreateEvent}
-                    className="px-5 py-2.5 rounded-2xl bg-zinc-950 hover:bg-[#b8860b] text-[#f2c301] hover:text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 rounded-2xl bg-zinc-950 hover:bg-[#b8860b] text-[#f2c301] hover:text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Create New Event</span>
@@ -1752,15 +1880,15 @@ export default function AdminDashboardPage() {
                   <Link
                     href="/events"
                     target="_blank"
-                    className="px-4 py-2.5 rounded-2xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-2xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>View Public /events Page</span>
                   </Link>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:w-64">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-64">
                     <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
@@ -1774,7 +1902,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={eventCategoryFilter}
                     onChange={(e) => setEventCategoryFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
+                    className="w-full sm:w-auto px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-300 text-xs font-semibold text-zinc-800"
                   >
                     <option value="All">All Categories ({events.length})</option>
                     {EVENT_CATEGORIES.map((cat) => (
@@ -1787,9 +1915,9 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Events Table */}
-              <div className="bg-white rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs overflow-hidden max-w-full">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[720px]">
                     <thead className="bg-zinc-50 text-zinc-500 font-bold border-b border-zinc-200 uppercase tracking-wider">
                       <tr>
                         <th className="px-5 py-3.5">Event Cover</th>
@@ -1897,20 +2025,20 @@ export default function AdminDashboardPage() {
 
               {/* Event Create / Edit Modal */}
               {eventModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-                  <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-zinc-200 relative max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+                  <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 sm:p-8 shadow-2xl border border-zinc-200 relative max-h-[90vh] overflow-y-auto">
                     <button
                       onClick={() => setEventModalOpen(false)}
-                      className="absolute top-5 right-5 p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
+                      className="absolute top-4 right-4 sm:top-5 sm:right-5 p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer"
                     >
                       <X className="w-5 h-5" />
                     </button>
 
-                    <div className="mb-6">
+                    <div className="mb-4 sm:mb-6 pr-8">
                       <span className="text-[11px] font-bold text-[#b8860b] uppercase tracking-wider">
                         {eventFormMode === "create" ? "Add New Masterclass / Seminar" : "Edit Event Details"}
                       </span>
-                      <h3 className="text-2xl font-serif font-bold text-zinc-950 mt-0.5">
+                      <h3 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
                         {eventFormMode === "create" ? "Create Academy Event" : "Update Event"}
                       </h3>
                     </div>
@@ -2024,7 +2152,7 @@ export default function AdminDashboardPage() {
                         <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
                           Event Cover Image
                         </label>
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                           <input
                             ref={evtFileInputRef}
                             type="file"
@@ -2047,7 +2175,7 @@ export default function AdminDashboardPage() {
                             <span>Upload Cover Photo</span>
                           </label>
 
-                          <span className="text-xs text-zinc-500">
+                          <span className="text-xs text-zinc-500 truncate max-w-xs">
                             {evtFile ? evtFile.name : "Or keep current image"}
                           </span>
                         </div>
@@ -2088,7 +2216,7 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* Toggles */}
-                      <div className="flex items-center gap-6 pt-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 pt-2">
                         <label className="flex items-center gap-2 text-xs font-bold text-zinc-800 cursor-pointer">
                           <input
                             type="checkbox"
@@ -2110,20 +2238,28 @@ export default function AdminDashboardPage() {
                         </label>
                       </div>
 
-                      <div className="pt-4 flex items-center justify-end gap-3 border-t border-zinc-100">
+                      <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 border-t border-zinc-100">
                         <button
                           type="button"
+                          disabled={evtUploading}
                           onClick={() => setEventModalOpen(false)}
-                          className="px-5 py-2.5 rounded-xl bg-zinc-100 text-zinc-700 text-xs font-bold hover:bg-zinc-200 cursor-pointer"
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-zinc-100 text-zinc-700 text-xs font-bold hover:bg-zinc-200 cursor-pointer disabled:opacity-60"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={evtUploading}
-                          className="px-6 py-2.5 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60"
+                          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                          {evtUploading ? "Saving Event..." : eventFormMode === "create" ? "Create Event" : "Save Changes"}
+                          {evtUploading ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-zinc-950" />
+                              <span>{eventFormMode === "create" ? "Creating Event..." : "Updating Event..."}</span>
+                            </>
+                          ) : (
+                            <span>{eventFormMode === "create" ? "Create Event" : "Save Changes"}</span>
+                          )}
                         </button>
                       </div>
                     </form>
@@ -2137,14 +2273,14 @@ export default function AdminDashboardPage() {
               TAB 5: GALLERY PHOTO DESK
           ======================================================== */}
           {activeTab === "gallery" && (
-            <div className="space-y-8 animate-in fade-in duration-200">
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
               {/* Photo Upload Form */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200/90 shadow-xs">
-                <div className="mb-6">
+              <div className="bg-white p-4 sm:p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs">
+                <div className="mb-4 sm:mb-6">
                   <span className="text-[11px] font-bold text-[#b8860b] uppercase tracking-wider">
                     Official Photo Gallery Manager
                   </span>
-                  <h3 className="text-xl font-serif font-bold text-zinc-950 mt-0.5">
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
                     Upload Photo to /gallery Showcase
                   </h3>
                 </div>
@@ -2200,7 +2336,7 @@ export default function AdminDashboardPage() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
                       Image File Upload
                     </label>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                       <input
                         ref={galFileInputRef}
                         type="file"
@@ -2222,7 +2358,7 @@ export default function AdminDashboardPage() {
                         <Upload className="w-3.5 h-3.5" />
                         <span>Select Image File</span>
                       </label>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-zinc-500 truncate max-w-xs">
                         {galFile ? galFile.name : "Or paste direct image path below"}
                       </span>
                     </div>
@@ -2242,7 +2378,7 @@ export default function AdminDashboardPage() {
                     <button
                       type="submit"
                       disabled={galUploading}
-                      className="px-6 py-3 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60"
+                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                     >
                       {galUploading ? "Uploading Photo..." : "Upload & Publish to Gallery"}
                     </button>
@@ -2251,9 +2387,9 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Gallery Grid */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
+              <div className="bg-white p-4 sm:p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-serif font-bold text-zinc-950">
+                  <h3 className="text-sm sm:text-base font-serif font-bold text-zinc-950">
                     Live Gallery Items ({galleryItems.length})
                   </h3>
                   <Link
@@ -2265,7 +2401,7 @@ export default function AdminDashboardPage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {galleryItems.map((item) => (
                     <div
                       key={item.id}
@@ -2276,7 +2412,7 @@ export default function AdminDashboardPage() {
                         <span className="font-bold line-clamp-2">{item.title}</span>
                         <button
                           onClick={() => handleDeleteGalleryItem(item.id, item.title)}
-                          className="self-end p-1 rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                          className="self-end p-1 rounded-lg bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
                           title="Delete photo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -2293,14 +2429,14 @@ export default function AdminDashboardPage() {
               TAB 6: ACADEMY VIDEO HUB
           ======================================================== */}
           {activeTab === "videos" && (
-            <div className="space-y-8 animate-in fade-in duration-200">
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
               {/* Video Upload Form */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200/90 shadow-xs">
-                <div className="mb-6">
+              <div className="bg-white p-4 sm:p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs">
+                <div className="mb-4 sm:mb-6">
                   <span className="text-[11px] font-bold text-[#b8860b] uppercase tracking-wider">
                     Academy Reel &amp; Video Publisher
                   </span>
-                  <h3 className="text-xl font-serif font-bold text-zinc-950 mt-0.5">
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-zinc-950 mt-0.5">
                     Publish Video to /academy
                   </h3>
                 </div>
@@ -2339,33 +2475,132 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
-                        YouTube URL or MP4 Video File *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="https://www.youtube.com/watch?v=..."
-                        value={vidUrl}
-                        onChange={(e) => setVidUrl(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-xs focus:outline-none focus:border-[#b8860b]"
-                      />
-                    </div>
+                  {/* Video Source Option Switcher */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-2">
+                      Video Source *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-100 rounded-2xl border border-zinc-200 max-w-md">
+                      <button
+                        type="button"
+                        onClick={() => setVidSourceType("youtube")}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          vidSourceType === "youtube"
+                            ? "bg-white text-zinc-950 shadow-xs border border-amber-300"
+                            : "text-zinc-600 hover:text-zinc-950"
+                        }`}
+                      >
+                        <VideoIcon className="w-3.5 h-3.5 text-red-500" />
+                        <span>YouTube URL</span>
+                      </button>
 
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
-                        Duration Badge (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 5:20 min or Reel"
-                        value={vidDuration}
-                        onChange={(e) => setVidDuration(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-xs focus:outline-none focus:border-[#b8860b]"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setVidSourceType("file")}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          vidSourceType === "file"
+                            ? "bg-white text-zinc-950 shadow-xs border border-amber-300"
+                            : "text-zinc-600 hover:text-zinc-950"
+                        }`}
+                      >
+                        <Upload className="w-3.5 h-3.5 text-[#b8860b]" />
+                        <span>Upload Video File</span>
+                      </button>
                     </div>
                   </div>
+
+                  {vidSourceType === "youtube" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
+                          YouTube / Shorts URL *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          value={vidUrl}
+                          onChange={(e) => setVidUrl(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-xs focus:outline-none focus:border-[#b8860b]"
+                        />
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          Auto-generates YouTube player &amp; high-res thumbnail.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
+                          Duration Badge (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 5:20 min or Reel"
+                          value={vidDuration}
+                          onChange={(e) => setVidDuration(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-xs focus:outline-none focus:border-[#b8860b]"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
+                          Select MP4 Video File *
+                        </label>
+                        <input
+                          ref={vidFileInputRef}
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleAdminVidFileChange(e.target.files[0]);
+                            }
+                          }}
+                          className="hidden"
+                          id="admin-vid-file-input"
+                        />
+                        <label
+                          htmlFor="admin-vid-file-input"
+                          className="w-full px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#b8860b] border border-amber-300 text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{vidFile ? "Change Video File" : "Choose MP4 from Computer"}</span>
+                        </label>
+
+                        {vidFile && (
+                          <div className="mt-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between text-xs">
+                            <span className="truncate max-w-[200px] font-semibold text-zinc-850">
+                              {vidFile.name}
+                            </span>
+                            <span className="text-zinc-500 font-mono text-[11px]">
+                              {(vidFile.size / (1024 * 1024)).toFixed(1)} MB
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-zinc-400 mt-1">
+                          Accepts .mp4, .webm, .mov (Max 100MB)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
+                          Duration Badge (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 5:20 min or Reel"
+                          value={vidDuration}
+                          onChange={(e) => setVidDuration(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-xs focus:outline-none focus:border-[#b8860b]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {vidFilePreview && (
+                    <div className="rounded-xl overflow-hidden border border-zinc-200 bg-black aspect-video max-h-36 max-w-sm">
+                      <video src={vidFilePreview} controls className="w-full h-full object-contain" />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-zinc-800 mb-1">
@@ -2384,18 +2619,25 @@ export default function AdminDashboardPage() {
                     <button
                       type="submit"
                       disabled={vidUploading}
-                      className="px-6 py-3 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60"
+                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#f2c301] hover:bg-[#d4af37] text-zinc-950 text-xs font-bold uppercase tracking-wider shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {vidUploading ? "Publishing Video..." : "Publish to /academy Hub"}
+                      {vidUploading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-zinc-950" />
+                          <span>Uploading &amp; Publishing Video...</span>
+                        </>
+                      ) : (
+                        <span>Publish to /academy Hub</span>
+                      )}
                     </button>
                   </div>
                 </form>
               </div>
 
               {/* Videos Grid */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
+              <div className="bg-white p-4 sm:p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-serif font-bold text-zinc-950">
+                  <h3 className="text-sm sm:text-base font-serif font-bold text-zinc-950">
                     Live Academy Videos ({academyVideos.length})
                   </h3>
                   <Link
@@ -2407,43 +2649,57 @@ export default function AdminDashboardPage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {academyVideos.map((v) => (
-                    <div
-                      key={v.id}
-                      className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 hover:border-amber-300 transition-all flex flex-col justify-between space-y-2"
-                    >
-                      <div>
-                        <span className="text-[10px] font-bold text-[#b8860b] uppercase tracking-wider bg-amber-100/70 px-2 py-0.5 rounded-full">
-                          {v.category}
-                        </span>
-                        <h4 className="font-bold text-xs text-zinc-900 mt-2 line-clamp-1">
-                          {v.title}
-                        </h4>
-                        <p className="text-[11px] text-zinc-500 line-clamp-2 mt-0.5">
-                          {v.description}
-                        </p>
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {academyVideos.map((v) => {
+                    const isDirectUpload =
+                      v.videoUrl?.includes("/uploads/") ||
+                      v.videoUrl?.endsWith(".mp4") ||
+                      v.videoUrl?.endsWith(".webm") ||
+                      v.videoUrl?.endsWith(".mov") ||
+                      (!v.videoUrl?.includes("youtube") && !v.videoUrl?.includes("youtu.be"));
 
-                      <div className="pt-2 border-t border-zinc-200 flex items-center justify-between text-xs">
-                        <a
-                          href={v.videoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#b8860b] font-bold hover:underline flex items-center gap-1 text-[11px]"
-                        >
-                          <Play className="w-3 h-3" /> Watch Video
-                        </a>
-                        <button
-                          onClick={() => handleDeleteVideo(v.id, v.title)}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50"
-                          title="Delete video"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    return (
+                      <div
+                        key={v.id}
+                        className="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-200 hover:border-amber-300 transition-all flex flex-col justify-between space-y-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold text-[#b8860b] uppercase tracking-wider bg-amber-100/70 px-2 py-0.5 rounded-full">
+                              {v.category}
+                            </span>
+                            <span className="text-[9px] font-bold text-zinc-700 bg-zinc-200 px-2 py-0.5 rounded-full">
+                              {isDirectUpload ? "MP4 Upload" : "YouTube"}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-xs text-zinc-900 mt-2 line-clamp-1">
+                            {v.title}
+                          </h4>
+                          <p className="text-[11px] text-zinc-500 line-clamp-2 mt-0.5">
+                            {v.description}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-zinc-200 flex items-center justify-between text-xs">
+                          <a
+                            href={v.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#b8860b] font-bold hover:underline flex items-center gap-1 text-[11px]"
+                          >
+                            <Play className="w-3 h-3" /> Watch Video
+                          </a>
+                          <button
+                            onClick={() => handleDeleteVideo(v.id, v.title)}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            title="Delete video"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

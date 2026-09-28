@@ -15,6 +15,7 @@ import {
   Scissors,
   Paintbrush,
   Sparkle,
+  ShieldCheck,
 } from "lucide-react";
 import { SERVICES_DATA } from "@/data/servicesData";
 import { COURSES_LIST } from "@/data/coursesData";
@@ -107,6 +108,15 @@ export default function Navbar() {
               <MapPin className="w-3.5 h-3.5 text-[#f2c301]" />
               <span>Near Meghdoot Garden, Indore</span>
             </span>
+            <span className="text-zinc-600 hidden sm:inline">|</span>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-[#f2c301] border border-zinc-800 hover:border-amber-400/40 transition-colors font-semibold text-[11px]"
+              title="Yashree Admin Portal"
+            >
+              <ShieldCheck className="w-3 h-3 text-[#f2c301]" />
+              <span>Admin Dashboard</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -421,13 +431,6 @@ export default function Navbar() {
               </Link>
 
               <Link
-                href="/events"
-                className="text-[13.5px] font-semibold text-zinc-700 hover:text-[#b8860b] transition-colors tracking-wide py-1"
-              >
-                Events
-              </Link>
-
-              <Link
                 href="/internship"
                 className="text-[13.5px] font-semibold text-zinc-700 hover:text-[#b8860b] transition-colors tracking-wide py-1"
               >
@@ -436,7 +439,15 @@ export default function Navbar() {
             </nav>
 
             {/* Action Buttons */}
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2.5">
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold text-zinc-700 hover:text-zinc-950 bg-amber-50/80 hover:bg-amber-100 border border-amber-200/80 transition-all cursor-pointer shadow-xs"
+                title="Yashree Admin Portal"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#b8860b]" />
+                <span>Admin</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsEnquiryModalOpen(true)}
@@ -673,18 +684,24 @@ export default function Navbar() {
                 Gallery
               </Link>
               <Link
-                href="/events"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-amber-50 hover:text-[#b8860b] rounded-xl transition-colors"
-              >
-                Events
-              </Link>
-              <Link
                 href="/internship"
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-amber-50 hover:text-[#b8860b] rounded-xl transition-colors"
               >
                 Internship
+              </Link>
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 text-sm font-bold text-zinc-900 bg-amber-50/80 hover:bg-amber-100 rounded-xl transition-colors flex items-center justify-between border border-amber-200/70"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#b8860b]" />
+                  <span>Admin Dashboard</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-900 text-[#f2c301] font-bold uppercase tracking-wider">
+                  Portal
+                </span>
               </Link>
 
               <div className="pt-3 flex flex-col gap-2">
