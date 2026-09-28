@@ -2,8 +2,19 @@
  * Centralized API HTTP Client for Yashree Institute
  */
 
-import { API_BASE_URL } from "./config";
+import { API_BASE_URL, BACKEND_ORIGIN } from "./config";
 import { ApiResponse } from "./types";
+
+const AUTH_TOKEN_KEY = "yashree_admin_token";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export class ApiError extends Error {
   public statusCode: number;
@@ -53,13 +64,22 @@ async function request<T>(
     }
   }
 
-  const defaultHeaders: HeadersInit = {
+  const defaultHeaders: Record<string, string> = {
     Accept: "application/json",
   };
 
   // Don't set Content-Type if sending FormData (browser automatically sets boundary)
   if (!(customConfig.body instanceof FormData)) {
     defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  // Attach Authorization Bearer token for backend requests if present in localStorage
+  const isBackendRequest = !endpoint.startsWith("http") || url.startsWith(BACKEND_ORIGIN);
+  if (isBackendRequest) {
+    const token = getStoredToken();
+    if (token) {
+      defaultHeaders["Authorization"] = `Bearer ${token}`;
+    }
   }
 
   const config: RequestInit = {
